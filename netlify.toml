@@ -1,0 +1,8 @@
+[build]
+  command = "node scripts/build-config.mjs"
+  publish = "public"
+
+[[redirects]]
+  from = "/w/*"
+  to = "/index.html"
+  status = 200

@@ -1,0 +1,13 @@
+{
+  "name": "little-memories-club",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A whimsical shared photo scrapbook on Supabase.",
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "config": "node scripts/build-config.mjs",
+    "build": "node scripts/build-config.mjs",
+    "dev": "node scripts/build-config.mjs && npx --yes serve public -s -l 3000"
+  }
+}
