@@ -141,6 +141,7 @@
     decor.style.animation = 'none';
     void decor.offsetWidth;
     decor.style.animation = '';
+    buildFloaters(name);
   }
 
   /* ==========================================================
@@ -296,7 +297,7 @@
     document.addEventListener('pointerover', (e) => {
       const t = e.target instanceof Element ? e.target : null;
       if (!t) return;
-      cur.classList.toggle('hover', !!t.closest('a, button, label, summary, select, [role="button"], [role="radio"], .card, .theme-card'));
+      cur.classList.toggle('hover', !!t.closest('a, button, label, summary, select, [role="button"], [role="radio"], .card, .theme-card, .floater'));
       cur.classList.toggle('text', !!t.closest('textarea, input:not([type="checkbox"]):not([type="file"])'));
     });
     document.addEventListener('pointerdown', (e) => {
@@ -1066,6 +1067,285 @@
   $('#success-again').addEventListener('click', () => { $('#success').hidden = true; fileInput.focus(); });
   $('#success-see').addEventListener('click', () => { $('#success').hidden = true; scrollToEl($('#wall')); });
   $('#success-copy').addEventListener('click', async () => toast((await copyText(shareUrl())) ? 'Wall link copied ♡' : 'Couldn’t copy the link'));
+
+  /* ==========================================================
+     Floating objects you can tap
+     ========================================================== */
+  const FLOATERS = {
+    pink: {
+      items: [['heart', '#D94B70'], ['bow', '#B78BA2'], ['sparkle', '#D94B70'], ['heart', '#F4BFD3'], ['bow', '#D94B70'], ['sparkle', '#B78BA2']],
+      say: ['You are loved ♡', 'Tiny moments, big feelings', 'Sending you sparkles ✧', 'Bow-tiful memory!', 'Cuteness overload ♡', 'Hello, sunshine ♡'],
+    },
+    garden: {
+      items: [['butterfly', '#B7C9A8'], ['petal', '#F2C94C'], ['mushroom', '#C0504D'], ['butterfly', '#F2E5A7'], ['petal', '#ffffff'], ['mushroom', '#B7794A']],
+      say: ['A little butterfly says hi ✿', 'Bloom where you are planted', 'Mushroom magic!', 'Petals for your thoughts', 'Peaceful moments grow here', 'Something lovely is growing ❦'],
+    },
+    spider: {
+      items: [['burst', '#E63946', 'POW!'], ['web', '#ffffff'], ['spider', '#E63946'], ['burst', '#3B82F6', 'ZAP!'], ['web', '#8fb8ff'], ['spider', '#ffffff']],
+      say: ['THWIP!', 'Swinging by!', 'Nice snap!', 'Web-tastic memory!', 'Comic-book moment!', 'Look at that panel!'],
+    },
+  };
+
+  function showSay(x, y, text) {
+    const b = el('span', 'say', text);
+    b.style.left = Math.min(Math.max(x, 100), innerWidth - 100) + 'px';
+    b.style.top = Math.max(y - 44, 24) + 'px';
+    document.body.append(b);
+    setTimeout(() => b.remove(), 2500);
+  }
+
+  function buildFloaters(name) {
+    const box = $('#floaters');
+    if (!box || !FLOATERS[name]) return;
+    box.textContent = '';
+    const cfg = FLOATERS[name];
+    const n = innerWidth < 640 ? 4 : 6;
+    cfg.items.slice(0, n).forEach(([icon, color, word], i) => {
+      const f = el('span', 'floater');
+      const rv = (a, b2, unit) => R(a, b2).toFixed(1) + unit;
+      f.style.cssText = [
+        `--c:${color}`, `--s:${Math.round(R(42, 56))}px`, `--d:${R(28, 48).toFixed(1)}s`, `--dl:${(-R(0, 30)).toFixed(1)}s`,
+        `left:${rv(3, 88, '%')}`, `top:${rv(14, 84, '%')}`,
+        `--x1:${rv(-22, 22, 'vw')}`, `--y1:${rv(-18, 18, 'vh')}`, `--x2:${rv(-22, 22, 'vw')}`, `--y2:${rv(-18, 18, 'vh')}`,
+        `--x3:${rv(-22, 22, 'vw')}`, `--y3:${rv(-18, 18, 'vh')}`,
+      ].join(';');
+      f.innerHTML = `<svg aria-hidden="true"><use href="#i-${icon}"/></svg>` + (word ? `<b>${word}</b>` : '');
+      f.addEventListener('click', () => {
+        const r = f.getBoundingClientRect();
+        const x = r.left + r.width / 2, y = r.top + r.height / 2;
+        f.classList.remove('popped'); void f.offsetWidth; f.classList.add('popped');
+        if (!reduced.matches) burstAt(x, y, 10, 70, 'burst');
+        showSay(x, y, pick(cfg.say));
+      });
+      box.append(f);
+    });
+  }
+
+  /* ==========================================================
+     Save a memory as a scrapbook card (PNG)
+     ========================================================== */
+  const GLYPH = {
+    heart: ['M24 42C10 31 4 23 4 15a10 10 0 0 1 20-3 10 10 0 0 1 20 3c0 8-6 16-20 27z', 48],
+    sparkle: ['M24 2c1.8 10 4.6 18.2 22 22-17.4 3.8-20.2 12-22 22-1.8-10-4.6-18.2-22-22C19.4 20.2 22.2 12 24 2z', 48],
+    leaf: ['M8 40C6 20 18 6 42 6c0 24-12 36-30 34z', 48],
+    petal: ['M24 4c10 8 14 18 0 40C10 22 14 12 24 4z', 48],
+    bow: ['M24 24C14 12 4 10 4 20s10 14 20 4zM24 24c10-12 20-14 20-4s-10 14-20 4zM22 28l-7 15 9-6zM26 28l7 15-9-6z', 48],
+    burst: ['M98 50L79 57.8 91.6 74 71.2 71.2 74 91.6 57.8 79 50 98 42.2 79 26 91.6 28.8 71.2 8.4 74 21 57.8 2 50 21 42.2 8.4 26 28.8 28.8 26 8.4 42.2 21 50 2 57.8 21 74 8.4 71.2 28.8 91.6 26 79 42.2z', 100],
+  };
+  const glyphCache = {};
+  function glyph(ctx, name, x, y, size, color, rot = 0) {
+    const [d, vb] = GLYPH[name];
+    const p = glyphCache[name] || (glyphCache[name] = new Path2D(d));
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(rot);
+    const s = size / vb;
+    ctx.scale(s, s); ctx.translate(-vb / 2, -vb / 2);
+    ctx.fillStyle = color; ctx.fill(p);
+    ctx.restore();
+  }
+  function daisy(ctx, x, y, size, petal, center) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = petal;
+    for (let i = 0; i < 8; i++) { ctx.rotate(Math.PI / 4); ctx.beginPath(); ctx.ellipse(0, -size * 0.3, size * 0.1, size * 0.22, 0, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = center;
+    ctx.beginPath(); ctx.arc(0, 0, size * 0.12, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  function rr(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  function web(ctx, size) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    for (let a = 0; a <= 4; a++) { const t = (a / 4) * (Math.PI / 2); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(t) * size, Math.sin(t) * size); ctx.stroke(); }
+    for (let r = 1; r <= 4; r++) { ctx.beginPath(); ctx.arc(0, 0, (r / 4) * size, 0, Math.PI / 2); ctx.stroke(); }
+    ctx.restore();
+  }
+  function rng(seed) { let s = (seed % 2147483646) + 1; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+
+  function wrapLines(ctx, text, maxW) {
+    const out = [];
+    for (const para of String(text).split('\n')) {
+      let line = '';
+      for (const word of para.split(/\s+/).filter(Boolean)) {
+        let w = word;
+        while (ctx.measureText(w).width > maxW) {      // break extremely long words
+          let n = w.length;
+          while (n > 1 && ctx.measureText(w.slice(0, n)).width > maxW) n--;
+          if (line) { out.push(line); line = ''; }
+          out.push(w.slice(0, n)); w = w.slice(n);
+        }
+        const t = line ? line + ' ' + w : w;
+        if (line && ctx.measureText(t).width > maxW) { out.push(line); line = w; } else line = t;
+      }
+      out.push(line);
+    }
+    return out;
+  }
+
+  async function makeCardImage(m, imgIndex) {
+    const t = theme();
+    const image = m.images[imgIndex] || m.images[0];
+    const res = await fetch(image.url, { mode: 'cors' });
+    if (!res.ok) throw new Error('image');
+    const bmp = await createImageBitmap(await res.blob());
+    const F = {
+      pink: { cap: '700 58px "Caveat", cursive', meta: '700 30px "Nunito", sans-serif', brand: '700 44px "Dancing Script", cursive', ink: '#4a2a3a', soft: '#7a5468', accent: '#D94B70', lh: 66, rad: 8 },
+      garden: { cap: 'italic 700 50px "Cormorant Garamond", Georgia, serif', meta: '700 30px "Nunito", sans-serif', brand: 'italic 700 42px "Cormorant Garamond", Georgia, serif', ink: '#2a3d2e', soft: '#55705a', accent: '#344D38', lh: 60, rad: 26 },
+      spider: { cap: '700 38px "Comic Neue", "Comic Sans MS", sans-serif', meta: '700 27px "Comic Neue", "Comic Sans MS", sans-serif', brand: '400 46px "Bangers", Impact, sans-serif', ink: '#191919', soft: '#4a4f63', accent: '#E63946', lh: 48, rad: 0 },
+    }[t];
+    try { await Promise.all([F.cap, F.meta, F.brand].map((f) => document.fonts.load(f, 'Aa♡'))); } catch { /* fall back to default fonts */ }
+
+    const W = 1080, M = 90, PW = W - 2 * M, IN = 36, IW = PW - 2 * IN;
+    const photoH = Math.round(Math.min(1100, Math.max(560, IW / (bmp.width / bmp.height))));
+    const measure = document.createElement('canvas').getContext('2d');
+    measure.font = F.cap;
+    const lines = wrapLines(measure, m.caption, IW - 20);
+    const panelX = M, panelY = M + 24;
+    const photoY = panelY + IN;
+    const capY = photoY + photoH + 34;
+    const metaY = capY + lines.length * F.lh + 24 + 28;
+    const brandY = metaY + 64;
+    const panelH = brandY + IN - panelY;
+    const H = panelY + panelH + M;
+
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    const rand = rng(hash(m.id));
+
+    // --- background ---
+    if (t === 'pink') {
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, '#FFF8F0'); g.addColorStop(0.5, '#F8DCE8'); g.addColorStop(1, '#F4BFD3');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 0.55;
+      for (let i = 0; i < 34; i++) glyph(ctx, i % 3 ? 'heart' : 'sparkle', rand() * W, rand() * H, 16 + rand() * 34, ['#F4BFD3', '#D94B70', '#ffffff', '#B78BA2'][i % 4], rand() * 1.2 - 0.6);
+      ctx.globalAlpha = 1;
+    } else if (t === 'garden') {
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#FFF8E9'); g.addColorStop(1, '#B7C9A8');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 0.6;
+      for (let i = 0; i < 30; i++) glyph(ctx, i % 2 ? 'leaf' : 'petal', rand() * W, rand() * H, 24 + rand() * 40, ['#748B67', '#B7C9A8', '#F2E5A7', '#ffffff'][i % 4], rand() * 6.28);
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.fillStyle = '#101A36'; ctx.fillRect(0, 0, W, H);
+      const g = ctx.createRadialGradient(W, 0, 0, W, 0, W);
+      g.addColorStop(0, 'rgba(59,130,246,.45)'); g.addColorStop(1, 'rgba(59,130,246,0)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      for (let y = 0; y < H; y += 28) for (let x = (y / 28) % 2 ? 14 : 0; x < W; x += 28) {
+        ctx.fillStyle = `rgba(230,57,70,${Math.max(0, 0.5 - y / H * 0.5).toFixed(2)})`;
+        ctx.beginPath(); ctx.arc(x, y, 4.5 * (1 - y / H * 0.6), 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.save(); web(ctx, 300); ctx.restore();
+      ctx.save(); ctx.translate(W, 0); ctx.scale(-1, 1); web(ctx, 300); ctx.restore();
+    }
+
+    // --- panel (the card itself) ---
+    ctx.save();
+    if (t === 'pink') { ctx.translate(W / 2, H / 2); ctx.rotate(-0.014); ctx.translate(-W / 2, -H / 2); }
+    if (t === 'pink') {
+      ctx.shadowColor = 'rgba(183,139,162,.6)'; ctx.shadowBlur = 44; ctx.shadowOffsetY = 18;
+      rr(ctx, panelX, panelY, PW, panelH, 10); ctx.fillStyle = '#FFF8F0'; ctx.fill();
+      ctx.shadowColor = 'transparent';
+      ctx.save(); ctx.translate(W / 2, panelY); ctx.rotate(-0.05);
+      ctx.fillStyle = 'rgba(244,191,211,.92)'; ctx.fillRect(-120, -30, 240, 60);
+      ctx.fillStyle = 'rgba(255,248,240,.55)';
+      for (let x = -120; x < 120; x += 36) { ctx.beginPath(); ctx.moveTo(x, -30); ctx.lineTo(x + 18, -30); ctx.lineTo(x - 2, 30); ctx.lineTo(x - 20, 30); ctx.fill(); }
+      ctx.restore();
+    } else if (t === 'garden') {
+      ctx.shadowColor = 'rgba(52,77,56,.4)'; ctx.shadowBlur = 40; ctx.shadowOffsetY = 16;
+      rr(ctx, panelX, panelY, PW, panelH, 44); ctx.fillStyle = '#FFF8E9'; ctx.fill();
+      ctx.shadowColor = 'transparent';
+      ctx.lineWidth = 4; ctx.strokeStyle = '#748B67'; ctx.stroke();
+      ctx.setLineDash([10, 9]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(116,139,103,.7)';
+      rr(ctx, panelX + 14, panelY + 14, PW - 28, panelH - 28, 32); ctx.stroke(); ctx.setLineDash([]);
+    } else {
+      ctx.fillStyle = '#E63946'; ctx.fillRect(panelX + 18, panelY + 18, PW, panelH);
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(panelX, panelY, PW, panelH);
+      ctx.lineWidth = 8; ctx.strokeStyle = '#191919'; ctx.strokeRect(panelX, panelY, PW, panelH);
+    }
+
+    // photo (cover-fit)
+    const sc = Math.max(IW / bmp.width, photoH / bmp.height);
+    const sw = IW / sc, sh = photoH / sc;
+    ctx.save();
+    rr(ctx, panelX + IN, photoY, IW, photoH, F.rad); ctx.clip();
+    ctx.drawImage(bmp, (bmp.width - sw) / 2, (bmp.height - sh) / 2, sw, sh, panelX + IN, photoY, IW, photoH);
+    ctx.restore();
+    if (t === 'spider') { ctx.lineWidth = 6; ctx.strokeStyle = '#191919'; ctx.strokeRect(panelX + IN, photoY, IW, photoH); }
+
+    // note, date, brand
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+    ctx.fillStyle = F.ink; ctx.font = F.cap;
+    lines.forEach((l, i) => ctx.fillText(l, panelX + IN + 10, capY + F.lh * 0.8 + i * F.lh));
+    ctx.fillStyle = F.soft; ctx.font = F.meta;
+    ctx.fillText(t === 'spider' ? metaText(m).toUpperCase() : metaText(m), panelX + IN + 10, metaY);
+    ctx.fillStyle = F.accent; ctx.font = F.brand; ctx.textAlign = 'right';
+    ctx.fillText(t === 'spider' ? 'LITTLE MEMORIES CLUB' : 'Little Memories Club ♡', panelX + PW - IN - 10, brandY);
+    ctx.restore();
+
+    // --- decorations on top ---
+    if (t === 'pink') {
+      glyph(ctx, 'bow', M + 20, panelY + 20, 170, '#D94B70', -0.35);
+      glyph(ctx, 'heart', W - M + 40, H - M + 2, 100, '#D94B70', 0.25);
+      glyph(ctx, 'sparkle', W - M + 5, panelY + 70, 70, '#ffffff', 0.3);
+      glyph(ctx, 'sparkle', M - 5, H - M - 60, 58, '#D94B70', 0);
+    } else if (t === 'garden') {
+      glyph(ctx, 'leaf', M - 4, panelY + 10, 170, '#748B67', -0.5);
+      daisy(ctx, W - M + 8, panelY + 24, 170, '#ffffff', '#F2C94C');
+      daisy(ctx, M + 10, H - M + 4, 130, '#ffffff', '#F2C94C');
+      glyph(ctx, 'leaf', W - M - 4, H - M + 4, 150, '#344D38', 2.6);
+    } else {
+      const bx = W - M - 90, by = panelY + 46;
+      glyph(ctx, 'burst', bx + 8, by + 8, 270, '#191919', 0.2);
+      glyph(ctx, 'burst', bx, by, 270, '#E63946', 0.2);
+      ctx.save(); ctx.translate(bx, by); ctx.rotate(0.2);
+      ctx.textAlign = 'center'; ctx.font = '400 46px "Bangers", Impact, sans-serif';
+      ctx.fillStyle = '#191919'; ctx.fillText('MEMORY', 3, -2); ctx.fillText('SAVED!', 3, 50);
+      ctx.fillStyle = '#ffffff'; ctx.fillText('MEMORY', 0, -5); ctx.fillText('SAVED!', 0, 47);
+      ctx.restore();
+    }
+    if (bmp.close) bmp.close();
+    return await new Promise((resolve) => c.toBlob(resolve, 'image/png'));
+  }
+
+  $('#lb-card').addEventListener('click', async () => {
+    const m = memories[lbState.index];
+    if (!m) return;
+    const btn = $('#lb-card');
+    const label = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Making your card…';
+    try {
+      const blob = await makeCardImage(m, lbState.img);
+      if (!blob) throw new Error('blob');
+      const name = `little-memory-${m.id.slice(0, 8)}.png`;
+      const file = new File([blob], name, { type: 'image/png' });
+      const touch = matchMedia('(pointer: coarse)').matches;
+      if (touch && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file], title: 'A little memory ♡' }); }
+        catch (e) { if (e && e.name !== 'AbortError') throw e; }
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = el('a');
+        a.href = url; a.download = name;
+        document.body.append(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+        toast('Card saved ♡');
+      }
+    } catch (err) {
+      console.error(err);
+      toast('Couldn’t make the card — please try again.');
+    } finally {
+      btn.disabled = false; btn.textContent = label;
+    }
+  });
 
   /* ==========================================================
      Footer, init
