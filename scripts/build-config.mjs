@@ -39,11 +39,24 @@ if (key && isServiceRole(key)) {
   process.exit(1);
 }
 
+const out = resolve(root, 'public/js/config.js');
+
+// No env vars on this machine? Keep the values already saved in public/js/config.js
+// (they are public values, safe to keep in the repo) instead of blanking them.
 if (!url || !key) {
+  if (existsSync(out)) {
+    const prev = readFileSync(out, 'utf8');
+    const u = (prev.match(/"supabaseUrl":\s*"([^"]+)"/) || [])[1];
+    const k = (prev.match(/"supabaseKey":\s*"([^"]+)"/) || [])[1];
+    if (u && k) {
+      if (isServiceRole(k)) { console.error('\n✖ public/js/config.js contains a SECRET key. Remove it.\n'); process.exit(1); }
+      console.log(`✓ using the values already in public/js/config.js (connected to ${u})`);
+      process.exit(0);
+    }
+  }
   console.warn('\n⚠ SUPABASE_URL / SUPABASE_ANON_KEY are not set — the site will build, but show a "not connected" notice.\n');
 }
 
-const out = resolve(root, 'public/js/config.js');
 mkdirSync(dirname(out), { recursive: true });
 writeFileSync(
   out,
