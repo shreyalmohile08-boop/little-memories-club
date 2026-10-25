@@ -566,13 +566,19 @@
      ========================================================== */
   const lb = $('#lightbox');
   const lbImg = $('#lb-img');
-  const lbState = { index: -1, img: 0, last: null };
+  const lbState = { index: -1, img: 0, last: null, key: '', orig: false };
 
   function renderLightbox() {
     const m = memories[lbState.index];
     if (!m) return;
     const image = m.images[lbState.img] || m.images[0];
-    lbImg.src = image.url;
+    const key = m.id + ':' + lbState.img;
+    if (lbState.key !== key) { lbState.key = key; lbState.orig = false; }
+    const origBtn = $('#lb-orig');
+    origBtn.hidden = !image.original_url;
+    origBtn.textContent = lbState.orig ? 'See decorated' : 'See original';
+    lbImg.src = lbState.orig && image.original_url ? image.original_url : image.url;
+    if (cm.memId !== m.id) loadComments(m);
     lbImg.alt = altFor(m);
     $('#lb-cap').textContent = m.caption;
     $('#lb-meta').textContent = metaText(m, true);
@@ -617,6 +623,7 @@
     lb.hidden = true;
     html.classList.remove('lb-open');
     lbImg.removeAttribute('src');
+    cm.memId = ''; cm.seq++;
     if (lbState.last && lbState.last.focus) lbState.last.focus({ preventScroll: true });
   }
   async function stepLightbox(dir) {
@@ -629,6 +636,7 @@
 
   $('#lb-close').addEventListener('click', closeLightbox);
   lb.addEventListener('click', (e) => { if (e.target instanceof Element && e.target.hasAttribute('data-close')) closeLightbox(); });
+  $('#lb-orig').addEventListener('click', () => { lbState.orig = !lbState.orig; renderLightbox(); });
   $('#lb-prev').addEventListener('click', () => stepLightbox(-1));
   $('#lb-next').addEventListener('click', () => stepLightbox(1));
   $('#lb-like').addEventListener('click', () => { const m = memories[lbState.index]; if (m) toggleLike(m, $('#lb-like')); });
@@ -646,11 +654,13 @@
   });
   document.addEventListener('keydown', (e) => {
     if (lb.hidden) return;
+    const typing = e.target instanceof Element && e.target.closest('input, textarea');
     if (e.key === 'Escape') { e.preventDefault(); closeLightbox(); }
+    else if (typing && e.key !== 'Tab') return;
     else if (e.key === 'ArrowLeft') stepLightbox(-1);
     else if (e.key === 'ArrowRight') stepLightbox(1);
     else if (e.key === 'Tab') {
-      const f = $$('button:not([disabled]):not([hidden]), a[href]', lb).filter((n) => n.offsetParent !== null);
+      const f = $$('button:not([disabled]):not([hidden]), a[href], input:not([hidden])', lb).filter((n) => n.offsetParent !== null);
       if (!f.length) return;
       const first = f[0], last = f[f.length - 1];
       if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
@@ -680,6 +690,7 @@
     bar.hidden = false;
     const name = String((session.user.user_metadata && session.user.user_metadata.name) || '').trim();
     bar.append(el('span', 'who', name ? `Hi, ${name}` : 'Hi there'));
+    bar.append(makeBell());
     if (view !== 'owner') { const a = el('a', 'btn btn-glass small', 'My wall'); a.href = '/'; bar.append(a); }
     const out = el('button', 'btn btn-glass small', 'Log out');
     out.type = 'button';
@@ -719,6 +730,7 @@
   addEventListener('popstate', route);
 
   async function logout() {
+    closeBell(); bell.unread = 0; bell.items = [];
     try { await sb.auth.signOut(); } catch { /* ignore */ }
     session = null;
     window.scrollTo(0, 0);
@@ -895,10 +907,17 @@
       const rem = el('button', null, '✕');
       rem.type = 'button'; rem.dataset.act = 'remove'; rem.dataset.id = it.id;
       rem.setAttribute('aria-label', `Remove picture ${i + 1}`);
+      if (it.status === 'ready' && it.blob && it.blob.type !== 'image/gif') {
+        const dec = el('button', null, it.edited ? '✎ Edit' : '✎ Decorate');
+        dec.type = 'button'; dec.dataset.act = 'decorate'; dec.dataset.id = it.id;
+        dec.setAttribute('aria-label', `Decorate picture ${i + 1} with stickers, doodles, a frame or a date`);
+        acts.append(dec);
+      }
       acts.append(rep, rem);
       li.append(acts);
       previews.append(li);
     });
+    syncDecorateUi();
   }
 
   async function addFiles(fileList) {
@@ -936,6 +955,7 @@
     if (!b || busy) return;
     const it = items.find((x) => x.id === b.dataset.id);
     if (!it) return;
+    if (b.dataset.act === 'decorate') { openEditor(it); return; }
     if (b.dataset.act === 'remove') {
       URL.revokeObjectURL(it.url);
       items.splice(items.indexOf(it), 1);
@@ -958,7 +978,7 @@
     it.url = URL.createObjectURL(f); it.status = 'processing'; it.blob = null;
     renderPreviews();
     try {
-      Object.assign(it, await processImage(f), { status: 'ready' });
+      Object.assign(it, await processImage(f), { status: 'ready', base: null, deco: null, edited: false });
       URL.revokeObjectURL(oldUrl);
     } catch (err) {
       URL.revokeObjectURL(it.url);
@@ -1026,6 +1046,7 @@
 
     const fd = new FormData();
     items.forEach((it, i) => fd.append('images', it.blob, `photo-${i + 1}.${it.blob.type === 'image/gif' ? 'gif' : 'jpg'}`));
+    if ($('#keep-orig').checked) items.forEach((it, i) => { if (it.edited && it.base) fd.append('orig_' + i, it.base, `orig-${i + 1}.jpg`); });
     fd.append('dims', JSON.stringify(items.map((it) => [it.w, it.h])));
     fd.append('caption', caption.value.trim());
     fd.append('display_name', $('#display-name').value.trim());
@@ -1352,6 +1373,479 @@
      ========================================================== */
   $('#to-top').addEventListener('click', () => window.scrollTo({ top: 0, behavior: reduced.matches ? 'auto' : 'smooth' }));
   $$('.reveal').forEach(observe);
+
+  /* ==========================================================
+     Round 2 — comments, notification bell, photo editor
+     ========================================================== */
+
+  /* ---------- comments (inside the picture viewer) ---------- */
+  const cm = { memId: '', seq: 0, list: [], canComment: false };
+  const cmToken = () => (view === 'owner' ? (wall && wall.share_token) || '' : wallToken);
+
+  function fmtWhen(s) {
+    const d = new Date(s);
+    if (isNaN(d)) return '';
+    const mins = Math.round((Date.now() - d.getTime()) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins} min ago`;
+    if (mins < 1440) return `${Math.round(mins / 60)} h ago`;
+    return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  }
+
+  function renderComments() {
+    const list = $('#cm-list');
+    list.textContent = '';
+    cm.list.forEach((c) => {
+      const li = el('li', 'cm-item' + (c.mine ? ' mine' : ''));
+      const head = el('div', 'cm-head');
+      head.append(el('strong', null, c.author_name), el('time', null, fmtWhen(c.created_at)));
+      li.append(head, el('p', 'cm-body', c.body));
+      if (c.can_delete) {
+        const d = el('button', 'cm-del', 'Delete');
+        d.type = 'button';
+        d.setAttribute('aria-label', `Delete comment by ${c.author_name}`);
+        d.addEventListener('click', () => deleteComment(c));
+        li.append(d);
+      }
+      list.append(li);
+    });
+    $('#cm-count').textContent = cm.list.length ? `(${cm.list.length})` : '';
+    $('#cm-empty').hidden = cm.list.length > 0;
+    $('#cm-form').hidden = !cm.canComment;
+    $('#cm-login').hidden = cm.canComment;
+  }
+
+  async function loadComments(m) {
+    cm.memId = m.id;
+    const mine = ++cm.seq;
+    cm.list = []; cm.canComment = !!session;
+    renderComments();
+    $('#cm-empty').hidden = true;
+    setErr('cm-err', '');
+    const token = cmToken();
+    if (!token) return;
+    try {
+      const r = await call('comments', { token, memory_id: m.id }, 'optional');
+      if (mine !== cm.seq) return;
+      cm.list = r.comments || [];
+      cm.canComment = !!r.can_comment;
+      renderComments();
+    } catch (err) {
+      if (mine === cm.seq) { $('#cm-empty').hidden = true; setErr('cm-err', 'Couldn’t load the comments just now.'); }
+    }
+  }
+
+  async function deleteComment(c) {
+    if (!window.confirm('Delete this comment?')) return;
+    try {
+      await call('comment_delete', { token: cmToken(), memory_id: cm.memId, comment_id: c.id }, 'required');
+      cm.list = cm.list.filter((x) => x.id !== c.id);
+      renderComments();
+    } catch (err) { setErr('cm-err', err.message); }
+  }
+
+  $('#cm-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const input = $('#cm-input');
+    const text = input.value.trim();
+    const m = memories[lbState.index];
+    if (!m || !text) return;
+    const btn = $('#cm-send');
+    btn.disabled = true; setErr('cm-err', '');
+    try {
+      const r = await call('comment', { token: cmToken(), memory_id: m.id, body: text }, 'required');
+      input.value = '';
+      if (cm.memId === m.id) { cm.list.push(r.comment); renderComments(); }
+    } catch (err) { setErr('cm-err', err.message); }
+    finally { btn.disabled = false; }
+  });
+
+  /* ---------- notification bell (top bar) ---------- */
+  const bell = { unread: 0, items: [], open: false, btn: null, badge: null, timer: 0 };
+  const panel = $('#bell-panel');
+
+  function paintBell() {
+    if (!bell.btn) return;
+    bell.badge.textContent = bell.unread > 9 ? '9+' : String(bell.unread);
+    bell.badge.hidden = bell.unread < 1;
+    bell.btn.setAttribute('aria-label', bell.unread ? `Notifications, ${bell.unread} new` : 'Notifications');
+  }
+
+  function makeBell() {
+    const b = el('button', 'btn btn-glass small bell');
+    b.type = 'button';
+    b.setAttribute('aria-haspopup', 'true');
+    b.setAttribute('aria-expanded', String(bell.open));
+    b.append(el('span', null, '🔔'));
+    const badge = el('span', 'bell-badge');
+    badge.hidden = true;
+    b.append(badge);
+    b.addEventListener('click', toggleBell);
+    bell.btn = b; bell.badge = badge;
+    paintBell();
+    pollBell();
+    if (!bell.timer) bell.timer = setInterval(() => { if (!document.hidden) pollBell(); }, 60000);
+    return b;
+  }
+
+  async function pollBell() {
+    if (!session) { bell.unread = 0; bell.items = []; paintBell(); return; }
+    try {
+      const r = await call('notifs', {}, 'required');
+      bell.items = r.items || [];
+      bell.unread = r.unread || 0;
+      paintBell();
+      if (bell.open) renderBellPanel();
+    } catch { /* stay quiet: the bell is a nice-to-have */ }
+  }
+
+  function bellText(n) {
+    if (n.kind === 'comment') return `${n.actor_name || 'Someone'} commented: “${n.preview || ''}”`;
+    return n.n > 1 ? `${n.n} new hearts on one of your memories ♡` : 'Someone ♡ one of your memories';
+  }
+
+  function renderBellPanel() {
+    panel.textContent = '';
+    panel.append(el('h2', null, 'Notifications'));
+    if (!bell.items.length) { panel.append(el('p', 'bp-empty', 'Nothing new yet ♡')); return; }
+    const ul = el('ul', 'bp-list');
+    bell.items.forEach((n) => {
+      const li = el('li');
+      const b = el('button', 'bp-item' + (n.read_at ? '' : ' unread'));
+      b.type = 'button';
+      b.append(el('span', 'bp-ico', n.kind === 'comment' ? '💬' : '♡'), el('span', 'bp-txt', bellText(n)), el('time', null, fmtWhen(n.created_at)));
+      b.addEventListener('click', () => {
+        closeBell();
+        if (n.memory_id && view === 'owner' && memories.some((m) => m.id === n.memory_id)) openLightbox(n.memory_id);
+        else if (view !== 'owner') location.assign('/');
+        else scrollToEl($('#wall'));
+      });
+      li.append(b);
+      ul.append(li);
+    });
+    panel.append(ul);
+  }
+
+  async function toggleBell() {
+    if (bell.open) { closeBell(); return; }
+    bell.open = true;
+    bell.btn.setAttribute('aria-expanded', 'true');
+    renderBellPanel();
+    panel.hidden = false;
+    if (bell.unread > 0) {
+      try { await call('notifs_read', {}, 'required'); bell.unread = 0; paintBell(); } catch { /* ignore */ }
+    }
+  }
+  function closeBell() {
+    if (!bell.open) return;
+    bell.open = false;
+    panel.hidden = true;
+    if (bell.btn) bell.btn.setAttribute('aria-expanded', 'false');
+    bell.items.forEach((n) => { n.read_at = n.read_at || new Date().toISOString(); });
+  }
+  document.addEventListener('pointerdown', (e) => {
+    if (bell.open && e.target instanceof Element && !e.target.closest('#bell-panel, .bell')) closeBell();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && bell.open) { closeBell(); if (bell.btn) bell.btn.focus(); } });
+
+  /* ---------- photo editor: stickers, doodles, frame, date stamp ---------- */
+  const editor = $('#editor');
+  const edCanvas = $('#ed-canvas');
+  const ed = { it: null, img: null, w: 0, h: 0, st: null, tool: 'stickers', color: '#D94B70', size: 5, drag: null, stroke: null, last: null };
+  const PEN_COLORS = ['#D94B70', '#F2C94C', '#7BA05B', '#3B82F6', '#ffffff', '#2b2230'];
+  const FRAMES = [['none', 'None'], ['polaroid', 'Polaroid'], ['pink', 'Pink hearts'], ['garden', 'Garden'], ['comic', 'Comic']];
+  const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+
+  const emojiSticker = (ch) => (ctx, x, y, s, rot) => {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+    ctx.font = `${Math.round(s)}px ${EMOJI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(ch, 0, s * 0.04);
+    ctx.restore();
+  };
+  const glyphSticker = (name, color) => (ctx, x, y, s, rot) => glyph(ctx, name, x, y, s, color, rot);
+  const burstSticker = (text, color) => (ctx, x, y, s, rot) => {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+    glyph(ctx, 'burst', 0, 0, s * 1.15, color, 0);
+    ctx.font = `900 ${Math.round(s * 0.3)}px Impact, "Arial Black", sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = Math.max(2, s * 0.04); ctx.strokeStyle = '#111'; ctx.strokeText(text, 0, 0);
+    ctx.fillStyle = '#fff'; ctx.fillText(text, 0, 0);
+    ctx.restore();
+  };
+  const STICKERS = [
+    ['heart', glyphSticker('heart', '#D94B70')], ['heart2', glyphSticker('heart', '#F4BFD3')],
+    ['bow', glyphSticker('bow', '#D94B70')], ['sparkle', glyphSticker('sparkle', '#F2C94C')],
+    ['sparkle2', glyphSticker('sparkle', '#ffffff')], ['leaf', glyphSticker('leaf', '#7BA05B')],
+    ['petal', glyphSticker('petal', '#F4BFD3')], ['pow', burstSticker('POW!', '#E63946')],
+    ['zap', burstSticker('ZAP!', '#3B82F6')], ['butterfly', emojiSticker('🦋')],
+    ['flower', emojiSticker('🌸')], ['daisy', emojiSticker('🌼')], ['mush', emojiSticker('🍄')],
+    ['star', emojiSticker('⭐')], ['cloud', emojiSticker('☁️')], ['rainbow', emojiSticker('🌈')],
+    ['spider', emojiSticker('🕷️')], ['cake', emojiSticker('🎂')],
+  ];
+  const STICKER_FN = Object.fromEntries(STICKERS);
+
+  const emptyDeco = () => ({ strokes: [], stickers: [], frame: 'none', stamp: { on: false, text: '' } });
+  const isEmptyDeco = (d) => !d.strokes.length && !d.stickers.length && d.frame === 'none' && !d.stamp.on;
+  function stampDefault() {
+    const v = $('#memory-date').value;
+    const d = v ? new Date(v + 'T12:00:00') : new Date();
+    return d.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
+  }
+
+  function band(ctx, w, h, t, b, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, w, t); ctx.fillRect(0, h - b, w, b);
+    ctx.fillRect(0, 0, t, h); ctx.fillRect(w - t, 0, t, h);
+  }
+  function drawFrame(ctx, kind, w, h) {
+    const m = Math.min(w, h);
+    if (kind === 'polaroid') {
+      const t = m * 0.045, b = m * 0.15;
+      band(ctx, w, h, t, b, '#fffdf8');
+      ctx.strokeStyle = 'rgba(0,0,0,.12)'; ctx.lineWidth = Math.max(1, m * 0.003);
+      ctx.strokeRect(t, t, w - 2 * t, h - t - b);
+    } else if (kind === 'pink') {
+      const t = m * 0.04;
+      band(ctx, w, h, t, t, '#F4BFD3');
+      ctx.strokeStyle = '#D94B70'; ctx.lineWidth = Math.max(2, m * 0.006);
+      ctx.strokeRect(t, t, w - 2 * t, h - 2 * t);
+      [[t, t], [w - t, t], [t, h - t], [w - t, h - t]].forEach(([x, y], i) => glyph(ctx, 'heart', x, y, t * 2.6, '#D94B70', (i - 1.5) * 0.3));
+      for (let i = 1; i < 4; i++) { glyph(ctx, 'heart', (w * i) / 4, t / 2, t * 0.9, '#fff'); glyph(ctx, 'heart', (w * i) / 4, h - t / 2, t * 0.9, '#fff'); }
+    } else if (kind === 'garden') {
+      const t = m * 0.045;
+      band(ctx, w, h, t, t, '#B7C9A8');
+      ctx.strokeStyle = '#7BA05B'; ctx.lineWidth = Math.max(2, m * 0.005);
+      ctx.strokeRect(t, t, w - 2 * t, h - 2 * t);
+      [[t, t], [w - t, t], [t, h - t], [w - t, h - t], [w / 2, t / 2], [w / 2, h - t / 2], [t / 2, h / 2], [w - t / 2, h / 2]]
+        .forEach(([x, y]) => daisy(ctx, x, y, t * 3.2, '#ffffff', '#F2C94C'));
+    } else if (kind === 'comic') {
+      const t = m * 0.03;
+      band(ctx, w, h, t, t, '#111');
+      ctx.strokeStyle = '#E63946'; ctx.lineWidth = Math.max(2, m * 0.006);
+      ctx.strokeRect(t * 1.6, t * 1.6, w - 3.2 * t, h - 3.2 * t);
+      glyph(ctx, 'burst', t * 3.4, t * 3.4, t * 5.5, '#F2C94C', 0.2);
+    }
+  }
+  function drawStamp(ctx, st, w, h) {
+    if (!st.stamp.on || !st.stamp.text.trim()) return;
+    const m = Math.min(w, h);
+    ctx.save();
+    ctx.font = `700 ${Math.round(m * 0.05)}px "Courier New", monospace`;
+    ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+    const padX = m * 0.07, padY = st.frame === 'polaroid' ? m * 0.05 : m * 0.07;
+    ctx.translate(w - padX, h - padY); ctx.rotate(-0.05);
+    ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = m * 0.01;
+    ctx.fillStyle = st.frame === 'polaroid' ? '#C96A12' : '#FFA63D';
+    ctx.fillText(st.stamp.text.trim(), 0, 0);
+    ctx.restore();
+  }
+  function paintDeco(ctx, st, img, w, h, ui) {
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    st.strokes.forEach((s) => {
+      ctx.strokeStyle = s.color; ctx.lineWidth = Math.max(1, (s.size * w) / 600);
+      ctx.beginPath();
+      s.pts.forEach(([x, y], i) => (i ? ctx.lineTo(x * w, y * h) : ctx.moveTo(x * w, y * h)));
+      if (s.pts.length === 1) ctx.lineTo(s.pts[0][0] * w + 0.01, s.pts[0][1] * h);
+      ctx.stroke();
+    });
+    const m = Math.min(w, h);
+    st.stickers.forEach((s) => { const f = STICKER_FN[s.id]; if (f) f(ctx, s.x * w, s.y * h, s.size * m, s.rot); });
+    drawFrame(ctx, st.frame, w, h);
+    drawStamp(ctx, st, w, h);
+    if (ui && st.sel >= 0 && st.stickers[st.sel]) {
+      const s = st.stickers[st.sel];
+      ctx.save();
+      ctx.setLineDash([8, 6]); ctx.lineWidth = 2;
+      ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.arc(s.x * w, s.y * h, s.size * m * 0.62, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = '#333'; ctx.lineDashOffset = 7; ctx.stroke();
+      ctx.restore();
+    }
+  }
+  const edRepaint = () => { if (ed.img) paintDeco(edCanvas.getContext('2d'), ed.st, ed.img, edCanvas.width, edCanvas.height, true); };
+
+  function edSelUi() { $('#ed-sel').hidden = !(ed.st && ed.st.sel >= 0 && ed.st.stickers[ed.st.sel]); }
+
+  function edTool(name) {
+    ed.tool = name;
+    $$('.ed-tabs [role="tab"]', editor).forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tool === name)));
+    $$('.ed-tool', editor).forEach((p) => { p.hidden = p.dataset.for !== name; });
+    editor.dataset.tool = name;
+    if (name !== 'stickers' && ed.st) { ed.st.sel = -1; edSelUi(); edRepaint(); }
+  }
+
+  let edBuilt = false;
+  function buildEditorUi() {
+    if (edBuilt) return;
+    edBuilt = true;
+    const tray = $('#ed-tray');
+    STICKERS.forEach(([id, fn]) => {
+      const b = el('button', 'ed-st');
+      b.type = 'button'; b.setAttribute('aria-label', `Add ${id.replace(/\d$/, '')} sticker`);
+      const c = document.createElement('canvas');
+      c.width = c.height = 64;
+      fn(c.getContext('2d'), 32, 32, 46, 0);
+      b.append(c);
+      b.addEventListener('click', () => {
+        if (!ed.st) return;
+        ed.st.stickers.push({ id, x: 0.5 + R(-0.1, 0.1), y: 0.5 + R(-0.1, 0.1), size: 0.22, rot: R(-0.25, 0.25) });
+        ed.st.sel = ed.st.stickers.length - 1;
+        edSelUi(); edRepaint();
+      });
+      tray.append(b);
+    });
+    const colors = $('#ed-colors');
+    PEN_COLORS.forEach((c) => {
+      const b = el('button', 'ed-color');
+      b.type = 'button'; b.style.background = c; b.setAttribute('aria-label', `Pen colour ${c}`);
+      b.setAttribute('aria-pressed', String(c === ed.color));
+      b.addEventListener('click', () => { ed.color = c; $$('.ed-color', colors).forEach((x) => x.setAttribute('aria-pressed', String(x === b))); });
+      colors.append(b);
+    });
+    $$('[data-size]', editor).forEach((b) => b.addEventListener('click', () => {
+      ed.size = Number(b.dataset.size);
+      $$('[data-size]', editor).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    }));
+    $('#ed-undo').addEventListener('click', () => { if (ed.st) { ed.st.strokes.pop(); edRepaint(); } });
+    const frames = $('#ed-frames');
+    FRAMES.forEach(([id, label]) => {
+      const b = el('button', 'btn btn-glass small', label);
+      b.type = 'button'; b.dataset.frame = id; b.setAttribute('aria-pressed', 'false');
+      b.addEventListener('click', () => { ed.st.frame = id; syncEditorFields(); edRepaint(); });
+      frames.append(b);
+    });
+    $$('.ed-tabs [role="tab"]', editor).forEach((b) => b.addEventListener('click', () => edTool(b.dataset.tool)));
+    $('#ed-sel').addEventListener('click', (e) => {
+      const b = e.target instanceof Element ? e.target.closest('[data-st]') : null;
+      const s = ed.st && ed.st.stickers[ed.st.sel];
+      if (!b || !s) return;
+      const a = b.dataset.st;
+      if (a === 'bigger') s.size = Math.min(0.9, s.size * 1.18);
+      else if (a === 'smaller') s.size = Math.max(0.05, s.size / 1.18);
+      else if (a === 'left') s.rot -= 0.2;
+      else if (a === 'right') s.rot += 0.2;
+      else if (a === 'del') { ed.st.stickers.splice(ed.st.sel, 1); ed.st.sel = -1; }
+      edSelUi(); edRepaint();
+    });
+    $('#ed-stamp-on').addEventListener('change', (e) => { ed.st.stamp.on = e.target.checked; if (e.target.checked && !ed.st.stamp.text) { ed.st.stamp.text = stampDefault(); $('#ed-stamp-text').value = ed.st.stamp.text; } edRepaint(); });
+    $('#ed-stamp-text').addEventListener('input', (e) => { ed.st.stamp.text = e.target.value; edRepaint(); });
+    $('#ed-reset').addEventListener('click', () => { ed.st = Object.assign(emptyDeco(), { sel: -1 }); syncEditorFields(); edSelUi(); edRepaint(); });
+    $('#ed-cancel').addEventListener('click', closeEditor);
+    $('#ed-save').addEventListener('click', saveEditor);
+    editor.addEventListener('click', (e) => { if (e.target === editor) closeEditor(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !editor.hidden) { e.preventDefault(); closeEditor(); } });
+
+    // drawing + dragging on the picture
+    const pos = (e) => {
+      const r = edCanvas.getBoundingClientRect();
+      return [Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))];
+    };
+    edCanvas.addEventListener('pointerdown', (e) => {
+      if (!ed.st) return;
+      const [x, y] = pos(e);
+      edCanvas.setPointerCapture(e.pointerId);
+      if (ed.tool === 'doodle') {
+        ed.stroke = { color: ed.color, size: ed.size, pts: [[x, y]] };
+        ed.st.strokes.push(ed.stroke);
+        edRepaint();
+      } else if (ed.tool === 'stickers') {
+        const w = edCanvas.width, h = edCanvas.height, m = Math.min(w, h);
+        let hit = -1;
+        for (let i = ed.st.stickers.length - 1; i >= 0; i--) {
+          const s = ed.st.stickers[i];
+          if (Math.hypot((s.x - x) * w, (s.y - y) * h) < s.size * m * 0.6) { hit = i; break; }
+        }
+        ed.st.sel = hit;
+        ed.drag = hit >= 0 ? { dx: ed.st.stickers[hit].x - x, dy: ed.st.stickers[hit].y - y } : null;
+        edSelUi(); edRepaint();
+      }
+    });
+    edCanvas.addEventListener('pointermove', (e) => {
+      const [x, y] = pos(e);
+      if (ed.stroke) { ed.stroke.pts.push([x, y]); edRepaint(); }
+      else if (ed.drag && ed.st.sel >= 0) {
+        const s = ed.st.stickers[ed.st.sel];
+        s.x = Math.min(1, Math.max(0, x + ed.drag.dx)); s.y = Math.min(1, Math.max(0, y + ed.drag.dy));
+        edRepaint();
+      }
+    });
+    const end = () => { ed.stroke = null; ed.drag = null; };
+    edCanvas.addEventListener('pointerup', end);
+    edCanvas.addEventListener('pointercancel', end);
+  }
+
+  function syncEditorFields() {
+    $$('#ed-frames [data-frame]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.frame === ed.st.frame)));
+    $('#ed-stamp-on').checked = ed.st.stamp.on;
+    $('#ed-stamp-text').value = ed.st.stamp.text;
+  }
+
+  async function openEditor(it) {
+    if (!it.blob || it.blob.type === 'image/gif') return;
+    let img;
+    try { img = await createImageBitmap(it.base || it.blob); }
+    catch { toast('Couldn’t open that picture to decorate it.'); return; }
+    buildEditorUi();
+    ed.it = it; ed.img = img; ed.w = img.width; ed.h = img.height;
+    ed.st = it.deco ? Object.assign(emptyDeco(), structuredClone(it.deco), { sel: -1 }) : Object.assign(emptyDeco(), { sel: -1 });
+    if (!ed.st.stamp.text) ed.st.stamp.text = stampDefault();
+    const scale = Math.min(1, 1000 / Math.max(img.width, img.height));
+    edCanvas.width = Math.max(1, Math.round(img.width * scale));
+    edCanvas.height = Math.max(1, Math.round(img.height * scale));
+    ed.last = document.activeElement;
+    editor.hidden = false;
+    html.classList.add('lb-open');
+    edTool('stickers');
+    syncEditorFields(); edSelUi(); edRepaint();
+    $('#ed-save').focus({ preventScroll: true });
+  }
+
+  function closeEditor() {
+    if (editor.hidden) return;
+    editor.hidden = true;
+    html.classList.remove('lb-open');
+    if (ed.img && ed.img.close) ed.img.close();
+    ed.img = null; ed.it = null; ed.st = null; ed.stroke = null; ed.drag = null;
+    if (ed.last && ed.last.focus) ed.last.focus({ preventScroll: true });
+  }
+
+  async function saveEditor() {
+    const it = ed.it;
+    if (!it || !ed.img) return;
+    const st = ed.st;
+    if (isEmptyDeco(st)) {
+      if (it.base) { it.blob = it.base; swapPreviewUrl(it); }
+      it.base = null; it.deco = null; it.edited = false;
+    } else {
+      const out = document.createElement('canvas');
+      out.width = ed.w; out.height = ed.h;
+      paintDeco(out.getContext('2d'), st, ed.img, ed.w, ed.h, false);
+      let blob = await toBlob(out, 'image/jpeg', 0.88);
+      if (blob && blob.size > MAX_UPLOAD) blob = await toBlob(out, 'image/jpeg', 0.68);
+      if (!blob || blob.size > MAX_UPLOAD) { toast('That picture got too big — try fewer stickers.'); return; }
+      it.base = it.base || it.blob;
+      it.blob = blob;
+      it.deco = { strokes: st.strokes, stickers: st.stickers, frame: st.frame, stamp: st.stamp };
+      it.edited = true;
+      swapPreviewUrl(it);
+    }
+    closeEditor();
+    renderPreviews();
+    toast('Looking lovely ♡');
+  }
+  function swapPreviewUrl(it) {
+    const old = it.url;
+    it.url = URL.createObjectURL(it.blob);
+    URL.revokeObjectURL(old);
+  }
+
+  // Show the "Decorate" tip / "keep originals" choice only when they make sense.
+  function syncDecorateUi() {
+    const any = items.some((i) => i.status === 'ready' && i.blob && i.blob.type !== 'image/gif');
+    $('#decorate-hint').hidden = !any;
+    $('#keep-orig-row').hidden = !items.some((i) => i.edited);
+  }
 
   function init() {
     syncRadios(theme());
