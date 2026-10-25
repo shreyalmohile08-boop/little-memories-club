@@ -244,6 +244,8 @@
       <p class="err" id="err-files" role="alert"></p>
       <input id="replace-input" class="sr-only" type="file" accept="image/jpeg,image/png,image/webp,image/gif" tabindex="-1" aria-hidden="true">
       <ul id="previews" class="previews" aria-label="Selected pictures"></ul>
+      <p class="hint" id="decorate-hint" hidden>Tip: tap <strong>✎ Decorate</strong> on a picture to add stickers, doodles, a frame or a date stamp.</p>
+      <label class="check" id="keep-orig-row" hidden><input type="checkbox" id="keep-orig" checked> Also keep the untouched originals of decorated pictures (viewers can tap “See original”)</label>
 
       <div class="field">
         <label for="caption">Your little note</label>
@@ -347,12 +349,74 @@
           <button type="button" class="btn btn-glass small" id="lb-copy">Copy wall link</button>
           <button type="button" class="like" id="lb-like" hidden></button>
           <button type="button" class="btn btn-glass small" id="lb-card">Save as card</button>
+          <button type="button" class="btn btn-glass small" id="lb-orig" hidden>See original</button>
           <button type="button" class="btn btn-glass small" id="lb-delete" hidden>Delete memory</button>
         </div>
       </figcaption>
+      <section class="lb-comments" aria-label="Comments">
+        <h3>Comments <span id="cm-count"></span></h3>
+        <ul id="cm-list" class="cm-list"></ul>
+        <p class="cm-empty" id="cm-empty" hidden>No comments yet. Be the first to say something kind ♡</p>
+        <form id="cm-form" class="cm-form" hidden>
+          <label class="sr-only" for="cm-input">Write a comment</label>
+          <input id="cm-input" type="text" maxlength="300" autocomplete="off" placeholder="Say something sweet…">
+          <button type="submit" class="btn btn-primary small" id="cm-send">Send</button>
+        </form>
+        <p class="cm-login" id="cm-login" hidden>Want to comment? <a href="/">Log in or make your own wall</a> first ♡</p>
+        <p class="err" id="cm-err" role="alert"></p>
+      </section>
     </figure>
   </div>
 </div>
+
+<!-- ============ PHOTO EDITOR ============ -->
+<div id="editor" class="editor" role="dialog" aria-modal="true" aria-label="Decorate your picture" hidden>
+  <div class="ed-panel glass">
+    <div class="ed-stage"><canvas id="ed-canvas" aria-label="Your picture. Drag stickers to move them, or draw on it."></canvas></div>
+    <div class="ed-tabs" role="tablist" aria-label="Tools">
+      <button type="button" role="tab" data-tool="stickers" aria-selected="true">✨ Stickers</button>
+      <button type="button" role="tab" data-tool="doodle" aria-selected="false">✏️ Doodle</button>
+      <button type="button" role="tab" data-tool="frame" aria-selected="false">🖼️ Frame</button>
+      <button type="button" role="tab" data-tool="stamp" aria-selected="false">📅 Date</button>
+    </div>
+    <div class="ed-tool" data-for="stickers">
+      <div class="ed-tray" id="ed-tray" role="group" aria-label="Pick a sticker"></div>
+      <div class="ed-row" id="ed-sel" hidden>
+        <button type="button" class="btn btn-glass small" data-st="smaller" aria-label="Smaller">－</button>
+        <button type="button" class="btn btn-glass small" data-st="bigger" aria-label="Bigger">＋</button>
+        <button type="button" class="btn btn-glass small" data-st="left" aria-label="Turn left">⟲</button>
+        <button type="button" class="btn btn-glass small" data-st="right" aria-label="Turn right">⟳</button>
+        <button type="button" class="btn btn-glass small" data-st="del">Remove</button>
+      </div>
+      <p class="hint">Tap a sticker to add it, then drag it where you like.</p>
+    </div>
+    <div class="ed-tool" data-for="doodle" hidden>
+      <div class="ed-row" id="ed-colors" role="group" aria-label="Pen colour"></div>
+      <div class="ed-row" role="group" aria-label="Pen size">
+        <button type="button" class="btn btn-glass small" data-size="2">Thin</button>
+        <button type="button" class="btn btn-glass small" data-size="5" aria-pressed="true">Medium</button>
+        <button type="button" class="btn btn-glass small" data-size="10">Thick</button>
+        <button type="button" class="btn btn-glass small" id="ed-undo">Undo</button>
+      </div>
+      <p class="hint">Draw with your finger or mouse right on the picture.</p>
+    </div>
+    <div class="ed-tool" data-for="frame" hidden>
+      <div class="ed-row" id="ed-frames" role="group" aria-label="Frame"></div>
+    </div>
+    <div class="ed-tool" data-for="stamp" hidden>
+      <label class="check"><input type="checkbox" id="ed-stamp-on"> Add a date stamp</label>
+      <div class="field"><label for="ed-stamp-text">Stamp text</label><input id="ed-stamp-text" type="text" maxlength="24"></div>
+    </div>
+    <div class="ed-foot">
+      <button type="button" class="btn btn-glass small" id="ed-reset">Back to original</button>
+      <span class="grow"></span>
+      <button type="button" class="btn btn-glass small" id="ed-cancel">Cancel</button>
+      <button type="button" class="btn btn-primary small" id="ed-save">Use this ♡</button>
+    </div>
+  </div>
+</div>
+
+<div id="bell-panel" class="bell-panel glass" role="region" aria-label="Notifications" hidden></div>
 
 <div id="toast" role="status" aria-live="polite"></div>
 
