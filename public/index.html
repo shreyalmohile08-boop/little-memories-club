@@ -13,11 +13,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Caveat:wght@500;700&family=Comic+Neue:wght@400;700&family=Cormorant+Garamond:ital,wght@0,500;0,700;1,500;1,700&family=Dancing+Script:wght@600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
-<script>try{var t=localStorage.getItem('lmc-theme');if(t==='pink'||t==='garden'||t==='spider')document.documentElement.dataset.theme=t}catch(e){}</script>
+<script>try{var t=localStorage.getItem('lmc-theme');if(t==='pink'||t==='garden'||t==='spider')document.documentElement.dataset.theme=t}catch(e){}
+try{var m=localStorage.getItem('lmc-mode');if(m==='night'||(m!=='day'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.dataset.mode='night'}catch(e){}</script>
 <link rel="stylesheet" href="/css/styles.css">
 <noscript><style>.reveal,.card{opacity:1!important;translate:none!important}</style></noscript>
 </head>
 <body>
+<button type="button" id="mode-toggle" class="mode-toggle" aria-pressed="false" aria-label="Switch to night mode"><span aria-hidden="true">🌙</span></button>
 
 <!-- Icon sprite -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
@@ -241,6 +243,7 @@
         <span class="dz-title">Drop pictures here, or tap to choose</span>
         <span class="dz-sub">Up to 6 pictures · JPG, PNG, WebP or GIF</span>
       </label>
+      <div class="ed-row booth-row"><button type="button" class="btn btn-glass small" id="booth-open">📸 Photo booth</button><span class="hint">Take a 4-shot strip with your camera.</span></div>
       <p class="err" id="err-files" role="alert"></p>
       <input id="replace-input" class="sr-only" type="file" accept="image/jpeg,image/png,image/webp,image/gif" tabindex="-1" aria-hidden="true">
       <ul id="previews" class="previews" aria-label="Selected pictures"></ul>
@@ -374,10 +377,24 @@
   <div class="ed-panel glass">
     <div class="ed-stage"><canvas id="ed-canvas" aria-label="Your picture. Drag stickers to move them, or draw on it."></canvas></div>
     <div class="ed-tabs" role="tablist" aria-label="Tools">
+      <button type="button" role="tab" data-tool="crop" aria-selected="false">✂️ Crop</button>
+      <button type="button" role="tab" data-tool="filters" aria-selected="false">🎨 Filters</button>
       <button type="button" role="tab" data-tool="stickers" aria-selected="true">✨ Stickers</button>
       <button type="button" role="tab" data-tool="doodle" aria-selected="false">✏️ Doodle</button>
       <button type="button" role="tab" data-tool="frame" aria-selected="false">🖼️ Frame</button>
       <button type="button" role="tab" data-tool="stamp" aria-selected="false">📅 Date</button>
+    </div>
+    <div class="ed-tool" data-for="crop" hidden>
+      <div class="ed-row" id="ed-ratios" role="group" aria-label="Crop shape"></div>
+      <div class="ed-row">
+        <button type="button" class="btn btn-glass small" id="ed-rot-left" aria-label="Rotate left">⟲ Rotate</button>
+        <button type="button" class="btn btn-glass small" id="ed-rot-right" aria-label="Rotate right">Rotate ⟳</button>
+        <button type="button" class="btn btn-glass small" id="ed-crop-reset">Reset crop</button>
+      </div>
+      <p class="hint">Drag the corners to crop, drag inside the box to move it. Tip: crop first, then add stickers.</p>
+    </div>
+    <div class="ed-tool" data-for="filters" hidden>
+      <div class="ed-filters" id="ed-filters" role="group" aria-label="Photo filter"></div>
     </div>
     <div class="ed-tool" data-for="stickers">
       <div class="ed-tray" id="ed-tray" role="group" aria-label="Pick a sticker"></div>
@@ -412,6 +429,26 @@
       <span class="grow"></span>
       <button type="button" class="btn btn-glass small" id="ed-cancel">Cancel</button>
       <button type="button" class="btn btn-primary small" id="ed-save">Use this ♡</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PHOTO BOOTH ============ -->
+<div id="booth" class="editor" role="dialog" aria-modal="true" aria-label="Photo booth" hidden>
+  <div class="ed-panel glass booth-panel">
+    <div class="booth-stage" id="booth-stage">
+      <video id="booth-video" playsinline muted></video>
+      <canvas id="booth-strip" hidden aria-label="Your photo strip"></canvas>
+      <div id="booth-count" class="booth-count" aria-live="assertive"></div>
+      <div id="booth-flash" class="booth-flash"></div>
+    </div>
+    <p class="hint" id="booth-msg" role="status">Allow the camera, get ready and press Start. You get 4 shots.</p>
+    <div class="ed-foot">
+      <button type="button" class="btn btn-primary small" id="booth-shoot">📸 Start</button>
+      <button type="button" class="btn btn-glass small" id="booth-retake" hidden>Retake</button>
+      <span class="grow"></span>
+      <button type="button" class="btn btn-glass small" id="booth-cancel">Close</button>
+      <button type="button" class="btn btn-primary small" id="booth-use" hidden>Use this strip ♡</button>
     </div>
   </div>
 </div>
