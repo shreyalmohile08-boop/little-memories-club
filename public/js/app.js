@@ -158,7 +158,7 @@
       r.tabIndex = on ? 0 : -1;
     });
     const meta = $('meta[name="theme-color"]');
-    if (meta) meta.content = THEMES[name];
+    if (meta) meta.content = html.dataset.mode === 'night' ? '#1d1220' : THEMES[name];
   }
 
   function applyTheme(name) {
@@ -1548,10 +1548,11 @@
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && bell.open) { closeBell(); if (bell.btn) bell.btn.focus(); } });
 
+  /* ---------- photo editor: crop, filters, stickers, doodles, frame, date stamp ---------- */
   /* ---------- photo editor: stickers, doodles, frame, date stamp ---------- */
   const editor = $('#editor');
   const edCanvas = $('#ed-canvas');
-  const ed = { it: null, img: null, w: 0, h: 0, st: null, tool: 'stickers', color: '#D94B70', size: 5, drag: null, stroke: null, last: null };
+  const ed = { it: null, img: null, w: 0, h: 0, st: null, tool: 'stickers', color: '#D94B70', size: 5, drag: null, stroke: null, last: null, rotC: null, view: null, cropBase: null, ratio: null, ratioId: 'free', cdrag: null };
   const PEN_COLORS = ['#D94B70', '#F2C94C', '#7BA05B', '#3B82F6', '#ffffff', '#2b2230'];
   const FRAMES = [['none', 'None'], ['polaroid', 'Polaroid'], ['pink', 'Pink hearts'], ['garden', 'Garden'], ['comic', 'Comic']];
   const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
@@ -1584,8 +1585,6 @@
   ];
   const STICKER_FN = Object.fromEntries(STICKERS);
 
-  const emptyDeco = () => ({ strokes: [], stickers: [], frame: 'none', stamp: { on: false, text: '' } });
-  const isEmptyDeco = (d) => !d.strokes.length && !d.stickers.length && d.frame === 'none' && !d.stamp.on;
   function stampDefault() {
     const v = $('#memory-date').value;
     const d = v ? new Date(v + 'T12:00:00') : new Date();
@@ -1663,16 +1662,195 @@
       ctx.restore();
     }
   }
-  const edRepaint = () => { if (ed.img) paintDeco(edCanvas.getContext('2d'), ed.st, ed.img, edCanvas.width, edCanvas.height, true); };
+  /* ----- filters (pure pixel maths, so they work in every browser) ----- */
+  const FILTERS = [
+    ['none', 'Original', null],
+    ['warm', 'Warm', { b: 1.03, c: 1.05, s: 1.15, t: [18, 6, -14] }],
+    ['cool', 'Cool', { b: 1, c: 1.05, s: 1.05, t: [-14, 2, 20] }],
+    ['vintage', 'Vintage', { b: 1.04, c: 0.88, s: 0.65, t: [26, 12, -8], sepia: 0.35, vig: 0.35 }],
+    ['bw', 'B&W', { b: 1.02, c: 1.12, s: 0 }],
+    ['dream', 'Dreamy', { b: 1.1, c: 0.86, s: 1.1, t: [18, 6, 18] }],
+    ['pop', 'Pop', { b: 1.02, c: 1.2, s: 1.45 }],
+    ['night', 'Night', { b: 0.62, c: 1.15, s: 0.8, t: [-18, -6, 34], vig: 0.55 }],
+  ];
+  function applyFilter(canvas, name) {
+    const f = (FILTERS.find((x) => x[0] === name) || [])[2];
+    if (!f) return;
+    const w = canvas.width, h = canvas.height;
+    const ctx = canvas.getContext('2d');
+    const img = ctx.getImageData(0, 0, w, h);
+    const d = img.data;
+    const { b = 1, c = 1, s = 1, t = [0, 0, 0], sepia = 0, vig = 0 } = f;
+    const cx = w / 2, cy = h / 2, maxd = Math.hypot(cx, cy);
+    for (let y = 0, i = 0; y < h; y++) {
+      for (let x = 0; x < w; x++, i += 4) {
+        let r = d[i], g = d[i + 1], bl = d[i + 2];
+        if (sepia) {
+          const sr = 0.393 * r + 0.769 * g + 0.189 * bl, sg = 0.349 * r + 0.686 * g + 0.168 * bl, sb2 = 0.272 * r + 0.534 * g + 0.131 * bl;
+          r += (sr - r) * sepia; g += (sg - g) * sepia; bl += (sb2 - bl) * sepia;
+        }
+        const gray = 0.299 * r + 0.587 * g + 0.114 * bl;
+        r = gray + (r - gray) * s; g = gray + (g - gray) * s; bl = gray + (bl - gray) * s;
+        r = ((r - 128) * c + 128) * b + t[0]; g = ((g - 128) * c + 128) * b + t[1]; bl = ((bl - 128) * c + 128) * b + t[2];
+        if (vig) {
+          const k = Math.hypot(x - cx, y - cy) / maxd;
+          const v = 1 - vig * Math.max(0, (k - 0.35) / 0.65) ** 1.6;
+          r *= v; g *= v; bl *= v;
+        }
+        d[i] = r; d[i + 1] = g; d[i + 2] = bl;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
 
+  /* ----- rotate / crop / filter pipeline ----- */
+  const FULL_CROP = () => ({ x: 0, y: 0, w: 1, h: 1 });
+  const emptyDeco = () => ({ strokes: [], stickers: [], frame: 'none', stamp: { on: false, text: '' }, rot: 0, crop: FULL_CROP(), filter: 'none' });
+  const isFullCrop = (c) => c.x < 0.002 && c.y < 0.002 && c.w > 0.996 && c.h > 0.996;
+  const isEmptyDeco = (d) => !d.strokes.length && !d.stickers.length && d.frame === 'none' && !d.stamp.on && !d.rot && isFullCrop(d.crop) && d.filter === 'none';
+
+  function rotateToCanvas(src, quarter) {
+    const sw = src.width, sh = src.height;
+    const odd = quarter % 2 === 1;
+    const c = document.createElement('canvas');
+    c.width = odd ? sh : sw; c.height = odd ? sw : sh;
+    const x = c.getContext('2d');
+    if (quarter === 1) { x.translate(c.width, 0); x.rotate(Math.PI / 2); }
+    else if (quarter === 2) { x.translate(c.width, c.height); x.rotate(Math.PI); }
+    else if (quarter === 3) { x.translate(0, c.height); x.rotate(-Math.PI / 2); }
+    x.drawImage(src, 0, 0);
+    return c;
+  }
+  // cropped (+ filtered) copy of the rotated picture, at most `maxEdge` px on its long side
+  function makeBase(rotC, st, maxEdge, withCrop = true) {
+    const cr = withCrop ? st.crop : FULL_CROP();
+    const sw = Math.max(1, Math.round(cr.w * rotC.width)), sh = Math.max(1, Math.round(cr.h * rotC.height));
+    const k = Math.min(1, maxEdge / Math.max(sw, sh));
+    const out = document.createElement('canvas');
+    out.width = Math.max(1, Math.round(sw * k)); out.height = Math.max(1, Math.round(sh * k));
+    out.getContext('2d').drawImage(rotC, cr.x * rotC.width, cr.y * rotC.height, sw, sh, 0, 0, out.width, out.height);
+    if (st.filter !== 'none') applyFilter(out, st.filter);
+    return out;
+  }
+  const RATIOS = [['free', 'Free'], ['orig', 'Original'], ['1:1', 'Square'], ['4:5', '4:5'], ['3:4', '3:4'], ['4:3', '4:3'], ['16:9', '16:9']];
+  const ratioValue = (id) => {
+    if (id === 'free') return null;
+    if (id === 'orig') return ed.rotC ? ed.rotC.width / ed.rotC.height : null;
+    const [a, b] = id.split(':').map(Number);
+    return a / b;
+  };
+
+  // The picture shown in the editor depends on the tool: the whole picture (with a crop box)
+  // while cropping, the cropped + filtered result for everything else.
+  function rebuildView() { ed.view = makeBase(ed.rotC, ed.st, 1000); }
+  function rebuildCropBase() { ed.cropBase = makeBase(ed.rotC, ed.st, 1000, false); }
+  function edLayout() {
+    const src = ed.tool === 'crop' ? ed.cropBase : ed.view;
+    if (src && (edCanvas.width !== src.width || edCanvas.height !== src.height)) { edCanvas.width = src.width; edCanvas.height = src.height; }
+  }
+  function drawCropOverlay(ctx, w, h) {
+    const c = ed.st.crop;
+    const x = c.x * w, y = c.y * h, cw = c.w * w, ch = c.h * h;
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,.55)';
+    ctx.fillRect(0, 0, w, y); ctx.fillRect(0, y + ch, w, h - y - ch);
+    ctx.fillRect(0, y, x, ch); ctx.fillRect(x + cw, y, w - x - cw, ch);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(2, w / 300);
+    ctx.strokeRect(x, y, cw, ch);
+    ctx.globalAlpha = 0.4; ctx.lineWidth = 1;
+    for (let i = 1; i < 3; i++) {
+      ctx.beginPath(); ctx.moveTo(x + (cw * i) / 3, y); ctx.lineTo(x + (cw * i) / 3, y + ch); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, y + (ch * i) / 3); ctx.lineTo(x + cw, y + (ch * i) / 3); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    const hs = Math.max(12, w / 38);
+    [[x, y], [x + cw, y], [x, y + ch], [x + cw, y + ch]].forEach(([hx, hy]) => {
+      ctx.fillStyle = '#fff'; ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+      ctx.fillRect(hx - hs / 2, hy - hs / 2, hs, hs); ctx.strokeRect(hx - hs / 2, hy - hs / 2, hs, hs);
+    });
+    ctx.restore();
+  }
+  function edRepaint() {
+    if (!ed.st || !ed.rotC) return;
+    edLayout();
+    const ctx = edCanvas.getContext('2d');
+    if (ed.tool === 'crop') {
+      ctx.clearRect(0, 0, edCanvas.width, edCanvas.height);
+      ctx.drawImage(ed.cropBase, 0, 0);
+      drawCropOverlay(ctx, edCanvas.width, edCanvas.height);
+    } else paintDeco(ctx, ed.st, ed.view, edCanvas.width, edCanvas.height, true);
+  }
   function edSelUi() { $('#ed-sel').hidden = !(ed.st && ed.st.sel >= 0 && ed.st.stickers[ed.st.sel]); }
 
+  function renderFilterThumbs() {
+    if (!ed.rotC) return;
+    const src = makeBase(ed.rotC, Object.assign({}, ed.st, { filter: 'none' }), 120);
+    $$('#ed-filters [data-filter]').forEach((b) => {
+      const c = b.querySelector('canvas');
+      const x = c.getContext('2d');
+      const k = Math.max(c.width / src.width, c.height / src.height);
+      x.clearRect(0, 0, c.width, c.height);
+      x.drawImage(src, (c.width - src.width * k) / 2, (c.height - src.height * k) / 2, src.width * k, src.height * k);
+      applyFilter(c, b.dataset.filter);
+    });
+  }
+
   function edTool(name) {
+    const prev = ed.tool;
     ed.tool = name;
     $$('.ed-tabs [role="tab"]', editor).forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tool === name)));
     $$('.ed-tool', editor).forEach((p) => { p.hidden = p.dataset.for !== name; });
     editor.dataset.tool = name;
-    if (name !== 'stickers' && ed.st) { ed.st.sel = -1; edSelUi(); edRepaint(); }
+    if (!ed.st) return;
+    if (name !== 'stickers') { ed.st.sel = -1; edSelUi(); }
+    if (prev === 'crop' && name !== 'crop') { rebuildView(); renderFilterThumbs(); }
+    if (name === 'crop') rebuildCropBase();
+    if (name === 'filters') renderFilterThumbs();
+    edRepaint();
+  }
+
+  function fitRatio(r) {
+    const RW = ed.rotC.width, RH = ed.rotC.height;
+    let w = 1, h = 1;
+    if (r > RW / RH) h = RW / (r * RH); else w = (r * RH) / RW;
+    ed.st.crop = { x: (1 - w) / 2, y: (1 - h) / 2, w, h };
+  }
+  function cropPoint(e) {
+    const r = edCanvas.getBoundingClientRect();
+    return [Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)), r];
+  }
+  function cropDown(e) {
+    const [x, y, r] = cropPoint(e);
+    const c = ed.st.crop;
+    const near = Math.max(26 / r.width, 26 / r.height);
+    const corners = [[c.x, c.y, c.x + c.w, c.y + c.h], [c.x + c.w, c.y, c.x, c.y + c.h], [c.x, c.y + c.h, c.x + c.w, c.y], [c.x + c.w, c.y + c.h, c.x, c.y]];
+    for (const [cx, cy, ax, ay] of corners) {
+      if (Math.abs(x - cx) * r.width < 30 && Math.abs(y - cy) * r.height < 30) { ed.cdrag = { mode: 'corner', ax, ay }; return; }
+    }
+    if (x > c.x && x < c.x + c.w && y > c.y && y < c.y + c.h) ed.cdrag = { mode: 'move', dx: c.x - x, dy: c.y - y };
+    void near;
+  }
+  function cropMove(e) {
+    const d = ed.cdrag;
+    if (!d) return;
+    const [x, y] = cropPoint(e);
+    const c = ed.st.crop;
+    if (d.mode === 'move') {
+      c.x = Math.min(1 - c.w, Math.max(0, x + d.dx)); c.y = Math.min(1 - c.h, Math.max(0, y + d.dy));
+    } else {
+      const RW = ed.rotC.width, RH = ed.rotC.height;
+      const sx = x >= d.ax ? 1 : -1, sy = y >= d.ay ? 1 : -1;
+      let w = Math.max(0.06, Math.abs(x - d.ax)), h = Math.max(0.06, Math.abs(y - d.ay));
+      const room = (v, a, s) => (s > 0 ? 1 - a : a);
+      const r = ed.ratio;
+      if (r) {
+        if ((w * RW) / (h * RH) > r) w = (h * RH * r) / RW; else h = (w * RW) / (r * RH);
+        if (w > room(w, d.ax, sx)) { w = room(w, d.ax, sx); h = (w * RW) / (r * RH); }
+        if (h > room(h, d.ay, sy)) { h = room(h, d.ay, sy); w = (h * RH * r) / RW; }
+      } else { w = Math.min(w, room(w, d.ax, sx)); h = Math.min(h, room(h, d.ay, sy)); }
+      ed.st.crop = { x: sx > 0 ? d.ax : d.ax - w, y: sy > 0 ? d.ay : d.ay - h, w, h };
+    }
+    edRepaint();
   }
 
   let edBuilt = false;
@@ -1715,6 +1893,39 @@
       b.addEventListener('click', () => { ed.st.frame = id; syncEditorFields(); edRepaint(); });
       frames.append(b);
     });
+    // crop: ratios, rotate, reset
+    const ratios = $('#ed-ratios');
+    RATIOS.forEach(([id, label]) => {
+      const b = el('button', 'btn btn-glass small', label);
+      b.type = 'button'; b.dataset.ratio = id; b.setAttribute('aria-pressed', 'false');
+      b.addEventListener('click', () => {
+        ed.ratioId = id; ed.ratio = ratioValue(id);
+        if (ed.ratio) fitRatio(ed.ratio);
+        syncEditorFields(); edRepaint();
+      });
+      ratios.append(b);
+    });
+    const rotate = (dir) => {
+      ed.st.rot = (ed.st.rot + dir + 4) % 4;
+      ed.rotC = rotateToCanvas(ed.img, ed.st.rot);
+      ed.st.crop = FULL_CROP();
+      if (ed.ratioId === 'orig') ed.ratio = ratioValue('orig');
+      else if (ed.ratio) ed.ratio = ed.ratioId.split(':').reduce((a, b) => a / b);
+      rebuildCropBase(); rebuildView(); edRepaint();
+    };
+    $('#ed-rot-left').addEventListener('click', () => rotate(-1));
+    $('#ed-rot-right').addEventListener('click', () => rotate(1));
+    $('#ed-crop-reset').addEventListener('click', () => { ed.st.crop = FULL_CROP(); ed.ratioId = 'free'; ed.ratio = null; syncEditorFields(); edRepaint(); });
+    // filters
+    const fl = $('#ed-filters');
+    FILTERS.forEach(([id, label]) => {
+      const b = el('button', 'ed-filter');
+      b.type = 'button'; b.dataset.filter = id; b.setAttribute('aria-pressed', 'false');
+      const c = document.createElement('canvas'); c.width = c.height = 64;
+      b.append(c, el('span', null, label));
+      b.addEventListener('click', () => { ed.st.filter = id; syncEditorFields(); rebuildView(); edRepaint(); });
+      fl.append(b);
+    });
     $$('.ed-tabs [role="tab"]', editor).forEach((b) => b.addEventListener('click', () => edTool(b.dataset.tool)));
     $('#ed-sel').addEventListener('click', (e) => {
       const b = e.target instanceof Element ? e.target.closest('[data-st]') : null;
@@ -1730,13 +1941,18 @@
     });
     $('#ed-stamp-on').addEventListener('change', (e) => { ed.st.stamp.on = e.target.checked; if (e.target.checked && !ed.st.stamp.text) { ed.st.stamp.text = stampDefault(); $('#ed-stamp-text').value = ed.st.stamp.text; } edRepaint(); });
     $('#ed-stamp-text').addEventListener('input', (e) => { ed.st.stamp.text = e.target.value; edRepaint(); });
-    $('#ed-reset').addEventListener('click', () => { ed.st = Object.assign(emptyDeco(), { sel: -1 }); syncEditorFields(); edSelUi(); edRepaint(); });
+    $('#ed-reset').addEventListener('click', () => {
+      ed.st = Object.assign(emptyDeco(), { sel: -1 });
+      ed.ratioId = 'free'; ed.ratio = null;
+      ed.rotC = rotateToCanvas(ed.img, 0);
+      rebuildCropBase(); rebuildView(); syncEditorFields(); edSelUi(); renderFilterThumbs(); edRepaint();
+    });
     $('#ed-cancel').addEventListener('click', closeEditor);
     $('#ed-save').addEventListener('click', saveEditor);
     editor.addEventListener('click', (e) => { if (e.target === editor) closeEditor(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !editor.hidden) { e.preventDefault(); closeEditor(); } });
 
-    // drawing + dragging on the picture
+    // drawing, dragging and cropping on the picture
     const pos = (e) => {
       const r = edCanvas.getBoundingClientRect();
       return [Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))];
@@ -1745,6 +1961,7 @@
       if (!ed.st) return;
       const [x, y] = pos(e);
       edCanvas.setPointerCapture(e.pointerId);
+      if (ed.tool === 'crop') { cropDown(e); return; }
       if (ed.tool === 'doodle') {
         ed.stroke = { color: ed.color, size: ed.size, pts: [[x, y]] };
         ed.st.strokes.push(ed.stroke);
@@ -1762,6 +1979,7 @@
       }
     });
     edCanvas.addEventListener('pointermove', (e) => {
+      if (ed.cdrag) { cropMove(e); return; }
       const [x, y] = pos(e);
       if (ed.stroke) { ed.stroke.pts.push([x, y]); edRepaint(); }
       else if (ed.drag && ed.st.sel >= 0) {
@@ -1770,13 +1988,15 @@
         edRepaint();
       }
     });
-    const end = () => { ed.stroke = null; ed.drag = null; };
+    const end = () => { ed.stroke = null; ed.drag = null; ed.cdrag = null; };
     edCanvas.addEventListener('pointerup', end);
     edCanvas.addEventListener('pointercancel', end);
   }
 
   function syncEditorFields() {
     $$('#ed-frames [data-frame]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.frame === ed.st.frame)));
+    $$('#ed-filters [data-filter]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.filter === ed.st.filter)));
+    $$('#ed-ratios [data-ratio]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.ratio === ed.ratioId)));
     $('#ed-stamp-on').checked = ed.st.stamp.on;
     $('#ed-stamp-text').value = ed.st.stamp.text;
   }
@@ -1787,12 +2007,13 @@
     try { img = await createImageBitmap(it.base || it.blob); }
     catch { toast('Couldn’t open that picture to decorate it.'); return; }
     buildEditorUi();
-    ed.it = it; ed.img = img; ed.w = img.width; ed.h = img.height;
-    ed.st = it.deco ? Object.assign(emptyDeco(), structuredClone(it.deco), { sel: -1 }) : Object.assign(emptyDeco(), { sel: -1 });
+    ed.it = it; ed.img = img;
+    ed.st = Object.assign(emptyDeco(), it.deco ? structuredClone(it.deco) : {}, { sel: -1 });
     if (!ed.st.stamp.text) ed.st.stamp.text = stampDefault();
-    const scale = Math.min(1, 1000 / Math.max(img.width, img.height));
-    edCanvas.width = Math.max(1, Math.round(img.width * scale));
-    edCanvas.height = Math.max(1, Math.round(img.height * scale));
+    ed.ratioId = 'free'; ed.ratio = null;
+    ed.rotC = rotateToCanvas(img, ed.st.rot);
+    ed.tool = 'stickers';
+    rebuildView(); rebuildCropBase();
     ed.last = document.activeElement;
     editor.hidden = false;
     html.classList.add('lb-open');
@@ -1806,7 +2027,8 @@
     editor.hidden = true;
     html.classList.remove('lb-open');
     if (ed.img && ed.img.close) ed.img.close();
-    ed.img = null; ed.it = null; ed.st = null; ed.stroke = null; ed.drag = null;
+    ed.img = null; ed.it = null; ed.st = null; ed.rotC = null; ed.view = null; ed.cropBase = null;
+    ed.stroke = null; ed.drag = null; ed.cdrag = null;
     if (ed.last && ed.last.focus) ed.last.focus({ preventScroll: true });
   }
 
@@ -1816,17 +2038,19 @@
     const st = ed.st;
     if (isEmptyDeco(st)) {
       if (it.base) { it.blob = it.base; swapPreviewUrl(it); }
+      if (it.w0) { it.w = it.w0; it.h = it.h0; }
       it.base = null; it.deco = null; it.edited = false;
     } else {
+      const baseFull = makeBase(ed.rotC, st, 4000);
       const out = document.createElement('canvas');
-      out.width = ed.w; out.height = ed.h;
-      paintDeco(out.getContext('2d'), st, ed.img, ed.w, ed.h, false);
+      out.width = baseFull.width; out.height = baseFull.height;
+      paintDeco(out.getContext('2d'), st, baseFull, out.width, out.height, false);
       let blob = await toBlob(out, 'image/jpeg', 0.88);
       if (blob && blob.size > MAX_UPLOAD) blob = await toBlob(out, 'image/jpeg', 0.68);
       if (!blob || blob.size > MAX_UPLOAD) { toast('That picture got too big — try fewer stickers.'); return; }
-      it.base = it.base || it.blob;
-      it.blob = blob;
-      it.deco = { strokes: st.strokes, stickers: st.stickers, frame: st.frame, stamp: st.stamp };
+      if (!it.base) { it.base = it.blob; it.w0 = it.w; it.h0 = it.h; }
+      it.blob = blob; it.w = out.width; it.h = out.height;
+      it.deco = { strokes: st.strokes, stickers: st.stickers, frame: st.frame, stamp: st.stamp, rot: st.rot, crop: st.crop, filter: st.filter };
       it.edited = true;
       swapPreviewUrl(it);
     }
@@ -1846,6 +2070,166 @@
     $('#decorate-hint').hidden = !any;
     $('#keep-orig-row').hidden = !items.some((i) => i.edited);
   }
+
+  /* ==========================================================
+     Night mode
+     ========================================================== */
+  const modeBtn = $('#mode-toggle');
+  function paintMode() {
+    const night = html.dataset.mode === 'night';
+    modeBtn.setAttribute('aria-pressed', String(night));
+    modeBtn.setAttribute('aria-label', night ? 'Switch to day mode' : 'Switch to night mode');
+    modeBtn.firstElementChild.textContent = night ? '☀️' : '🌙';
+    const meta = $('meta[name="theme-color"]');
+    if (meta) meta.content = night ? '#1d1220' : THEMES[theme()];
+  }
+  modeBtn.addEventListener('click', () => {
+    const next = html.dataset.mode === 'night' ? 'day' : 'night';
+    html.dataset.mode = next;
+    try { localStorage.setItem('lmc-mode', next); } catch { /* storage may be blocked */ }
+    paintMode();
+  });
+  paintMode();
+
+  /* ==========================================================
+     Virtual photo booth: 4 shots -> one themed strip
+     ========================================================== */
+  const booth = $('#booth');
+  const bVideo = $('#booth-video');
+  const bStrip = $('#booth-strip');
+  const bState = { stream: null, busy: false, token: 0, last: null };
+  const STRIP_LOOK = {
+    pink: { bg: '#FBE3EC', line: '#D94B70', ink: '#B03358', glyph: 'heart' },
+    garden: { bg: '#E8EFDC', line: '#344D38', ink: '#344D38', glyph: 'leaf' },
+    spider: { bg: '#101A36', line: '#E63946', ink: '#ffffff', glyph: 'burst' },
+  };
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const boothMsg = (t) => { $('#booth-msg').textContent = t; };
+
+  function stopCamera() {
+    if (bState.stream) bState.stream.getTracks().forEach((t) => t.stop());
+    bState.stream = null;
+    bVideo.srcObject = null;
+  }
+
+  async function openBooth() {
+    if (items.length >= MAX_FILES) { setErr('err-files', `You already have ${MAX_FILES} pictures — remove one first.`); return; }
+    bState.last = document.activeElement;
+    booth.hidden = false;
+    html.classList.add('lb-open');
+    showLive();
+    boothMsg('Opening your camera…');
+    $('#booth-shoot').hidden = true;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      boothMsg('This browser can’t open a camera here. You can choose pictures from your phone or computer instead.');
+      return;
+    }
+    try {
+      bState.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false });
+      if (booth.hidden) { stopCamera(); return; }
+      bVideo.srcObject = bState.stream;
+      await bVideo.play().catch(() => {});
+      boothMsg('Get ready, then press Start. You get 4 shots.');
+      $('#booth-shoot').hidden = false;
+      $('#booth-shoot').focus({ preventScroll: true });
+    } catch {
+      boothMsg('We couldn’t open the camera. Allow camera access in your browser’s address bar, or choose pictures instead.');
+    }
+  }
+  function showLive() {
+    bVideo.hidden = false; bStrip.hidden = true;
+    $('#booth-retake').hidden = true; $('#booth-use').hidden = true;
+    $('#booth-shoot').hidden = !bState.stream;
+  }
+  function closeBooth() {
+    if (booth.hidden) return;
+    bState.token++;
+    booth.hidden = true;
+    html.classList.remove('lb-open');
+    stopCamera();
+    $('#booth-count').textContent = '';
+    if (bState.last && bState.last.focus) bState.last.focus({ preventScroll: true });
+  }
+
+  const SHOT_W = 600, SHOT_H = 420;
+  function grabShot() {
+    const c = document.createElement('canvas');
+    c.width = SHOT_W; c.height = SHOT_H;
+    const x = c.getContext('2d');
+    const vw = bVideo.videoWidth || 640, vh = bVideo.videoHeight || 480;
+    const k = Math.max(SHOT_W / vw, SHOT_H / vh);
+    const dw = vw * k, dh = vh * k;
+    x.translate(SHOT_W, 0); x.scale(-1, 1);              // mirror, like the preview
+    x.drawImage(bVideo, (SHOT_W - dw) / 2, (SHOT_H - dh) / 2, dw, dh);
+    return c;
+  }
+
+  function composeStrip(shots) {
+    const look = STRIP_LOOK[theme()] || STRIP_LOOK.pink;
+    const pad = 36, gap = 20, foot = 110;
+    const W = SHOT_W + pad * 2, H = pad + shots.length * SHOT_H + (shots.length - 1) * gap + foot;
+    bStrip.width = W; bStrip.height = H;
+    const x = bStrip.getContext('2d');
+    x.fillStyle = look.bg; x.fillRect(0, 0, W, H);
+    shots.forEach((s, i) => {
+      const y = pad + i * (SHOT_H + gap);
+      x.fillStyle = look.line; x.fillRect(pad - 6, y - 6, SHOT_W + 12, SHOT_H + 12);
+      x.drawImage(s, pad, y);
+    });
+    const fy = H - foot / 2 - 4;
+    x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = look.ink;
+    x.font = '700 38px "Dancing Script", Georgia, serif';
+    x.fillText('Little Memories Club', W / 2, fy - 12);
+    x.font = '600 24px "Courier New", monospace';
+    x.fillText(new Date().toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase(), W / 2, fy + 26);
+    glyph(x, look.glyph, 52, fy + 4, 34, look.line, -0.2);
+    glyph(x, look.glyph, W - 52, fy + 4, 34, look.line, 0.2);
+  }
+
+  async function runBooth() {
+    if (bState.busy || !bState.stream) return;
+    bState.busy = true;
+    const mine = ++bState.token;
+    $('#booth-shoot').hidden = true;
+    const shots = [];
+    const count = $('#booth-count'), flash = $('#booth-flash');
+    try {
+      for (let i = 0; i < 4; i++) {
+        boothMsg(`Shot ${i + 1} of 4 — smile!`);
+        for (let n = 3; n >= 1; n--) {
+          count.textContent = String(n);
+          await sleep(reduced.matches ? 600 : 800);
+          if (bState.token !== mine) return;
+        }
+        count.textContent = '';
+        shots.push(grabShot());
+        flash.classList.add('on');
+        setTimeout(() => flash.classList.remove('on'), 160);
+        await sleep(350);
+        if (bState.token !== mine) return;
+      }
+      composeStrip(shots);
+      bVideo.hidden = true; bStrip.hidden = false;
+      $('#booth-retake').hidden = false; $('#booth-use').hidden = false;
+      $('#booth-use').focus({ preventScroll: true });
+      boothMsg('Ta-da! Use it, or retake.');
+    } finally { bState.busy = false; if (bState.token === mine && bStrip.hidden) $('#booth-shoot').hidden = false; }
+  }
+
+  $('#booth-open').addEventListener('click', openBooth);
+  $('#booth-cancel').addEventListener('click', closeBooth);
+  $('#booth-shoot').addEventListener('click', runBooth);
+  $('#booth-retake').addEventListener('click', () => { showLive(); boothMsg('Get ready, then press Start. You get 4 shots.'); });
+  $('#booth-use').addEventListener('click', async () => {
+    const blob = await toBlob(bStrip, 'image/jpeg', 0.9);
+    if (!blob) { boothMsg('Couldn’t save the strip. Please retake.'); return; }
+    closeBooth();
+    await addFiles([new File([blob], 'photo-booth.jpg', { type: 'image/jpeg' })]);
+    toast('Strip added — tap ✎ Decorate to make it extra cute ♡');
+    scrollToEl($('#previews'));
+  });
+  booth.addEventListener('click', (e) => { if (e.target === booth) closeBooth(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !booth.hidden) { e.preventDefault(); closeBooth(); } });
 
   function init() {
     syncRadios(theme());
