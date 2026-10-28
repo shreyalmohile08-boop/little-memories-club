@@ -113,6 +113,11 @@
       [6, 27, 72, 92].slice(0, Math.max(3, Math.round(4 * k))).forEach((x) =>
         frag.append(fl('daisy', 'sway', { s: R(36, 60) + 'px', x: x + '%', y: R(86, 94) + '%', c: '#ffffff', d: R(5, 8) + 's', o: .85 })));
       for (let i = 0; i < n(3); i++) frag.append(fl('butterfly', 'flutter', { s: R(24, 34) + 'px', x: R(5, 35) + '%', y: R(15, 70) + '%', c: pick(['#F2E5A7', '#B7C9A8', '#ffffff']), d: R(32, 48) + 's', dl: -R(0, 32) + 's', o: .85 }));
+    } else if (name === 'vintage') {
+      for (let i = 0; i < n(12); i++) frag.append(fl('sparkle', 'twinkle', { s: R(8, 18) + 'px', x: R(2, 96) + '%', y: R(3, 95) + '%', c: pick(['#B08D3C', '#D6B25E', '#E8D49A']), d: R(3, 6) + 's', dl: -R(0, 6) + 's' }));
+      for (let i = 0; i < n(5); i++) frag.append(fl('fleur', 'drift', { s: R(18, 30) + 'px', x: '-8%', y: R(5, 85) + '%', c: pick(['#B08D3C', '#7A1F2B']), d: R(55, 90) + 's', dl: -R(0, 90) + 's', dy: R(-10, 10) + 'vh', o: 0.45 }));
+      for (let i = 0; i < n(5); i++) frag.append(fl('petal', 'fall', { s: R(12, 20) + 'px', x: R(0, 98) + '%', y: '-6%', c: pick(['#7A1F2B', '#8c2634', '#5b1520']), d: R(26, 44) + 's', dl: -R(0, 44) + 's', sw: R(-50, 50) + 'px', o: 0.55 }));
+      [['4%', '80%'], ['92%', '82%']].forEach(([x, y]) => frag.append(fl('laurel', 'sway', { s: R(52, 72) + 'px', x, y, c: '#8a6a1f', d: R(6, 9) + 's', o: 0.6 })));
     } else {
       for (let i = 0; i < n(4); i++) {
         const s = el('span', 'strand');
@@ -147,7 +152,7 @@
   /* ==========================================================
      Theme switching
      ========================================================== */
-  const THEMES = { pink: '#F8DCE8', garden: '#EAF0DC', spider: '#101A36' };
+  const THEMES = { pink: '#F8DCE8', garden: '#EAF0DC', vintage: '#F3EADB', spider: '#101A36' };
   const radios = $$('[data-theme-choice]');
   let switching = false;
 
@@ -1101,6 +1106,10 @@
       items: [['butterfly', '#B7C9A8'], ['petal', '#F2C94C'], ['mushroom', '#C0504D'], ['butterfly', '#F2E5A7'], ['petal', '#ffffff'], ['mushroom', '#B7794A']],
       say: ['A little butterfly says hi ✿', 'Bloom where you are planted', 'Mushroom magic!', 'Petals for your thoughts', 'Peaceful moments grow here', 'Something lovely is growing ❦'],
     },
+    vintage: {
+      items: [['fleur', '#B08D3C'], ['seal', '#7A1F2B'], ['laurel', '#8a6a1f'], ['fleur', '#7A1F2B'], ['seal', '#B08D3C'], ['sparkle', '#B08D3C']],
+      say: ['Quite a lovely memory.', 'How very distinguished ⚜', 'A keepsake for the ages', 'Delightful, simply delightful', 'Worthy of the family album', 'Impeccable taste ❖'],
+    },
     spider: {
       items: [['burst', '#E63946', 'POW!'], ['web', '#ffffff'], ['spider', '#E63946'], ['burst', '#3B82F6', 'ZAP!'], ['web', '#8fb8ff'], ['spider', '#ffffff']],
       say: ['THWIP!', 'Swinging by!', 'Nice snap!', 'Web-tastic memory!', 'Comic-book moment!', 'Look at that panel!'],
@@ -1151,6 +1160,7 @@
     leaf: ['M8 40C6 20 18 6 42 6c0 24-12 36-30 34z', 48],
     petal: ['M24 4c10 8 14 18 0 40C10 22 14 12 24 4z', 48],
     bow: ['M24 24C14 12 4 10 4 20s10 14 20 4zM24 24c10-12 20-14 20-4s-10 14-20 4zM22 28l-7 15 9-6zM26 28l7 15-9-6z', 48],
+    fleur: ['M24 2c4 6 6 11 6 16 0 4-2 7-6 10-4-3-6-6-6-10 0-5 2-10 6-16zM19 22c-5-5-12-5-15 0-2 4 0 9 5 10 3 .5 6-1 8-4-3 .5-6-1-6-4 0-2 2-3 4-2 2 .5 3 .5 4 0zM29 22c5-5 12-5 15 0 2 4 0 9-5 10-3 .5-6-1-8-4 3 .5 6-1 6-4 0-2-2-3-4-2-2 .5-3 .5-4 0zM14 33h20v3.5H14zM20 38.5h8L24 46z', 48],
     burst: ['M98 50L79 57.8 91.6 74 71.2 71.2 74 91.6 57.8 79 50 98 42.2 79 26 91.6 28.8 71.2 8.4 74 21 57.8 2 50 21 42.2 8.4 26 28.8 28.8 26 8.4 42.2 21 50 2 57.8 21 74 8.4 71.2 28.8 91.6 26 79 42.2z', 100],
   };
   const glyphCache = {};
@@ -1162,6 +1172,17 @@
     const s = size / vb;
     ctx.scale(s, s); ctx.translate(-vb / 2, -vb / 2);
     ctx.fillStyle = color; ctx.fill(p);
+    ctx.restore();
+  }
+  function waxSeal(ctx, x, y, size, color) {
+    ctx.save(); ctx.translate(x, y);
+    ctx.fillStyle = color;
+    const r = size / 2;
+    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; ctx.beginPath(); ctx.arc(Math.cos(a) * r * 0.72, Math.sin(a) * r * 0.72, r * 0.28, 0, Math.PI * 2); ctx.fill(); }
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.78, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = Math.max(1.5, size * 0.03);
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.55, 0, Math.PI * 2); ctx.stroke();
+    glyph(ctx, 'fleur', 0, 0, size * 0.5, 'rgba(255,255,255,.7)', 0);
     ctx.restore();
   }
   function daisy(ctx, x, y, size, petal, center) {
@@ -1218,6 +1239,7 @@
     const F = {
       pink: { cap: '700 58px "Caveat", cursive', meta: '700 30px "Nunito", sans-serif', brand: '700 44px "Dancing Script", cursive', ink: '#4a2a3a', soft: '#7a5468', accent: '#D94B70', lh: 66, rad: 8 },
       garden: { cap: 'italic 700 50px "Cormorant Garamond", Georgia, serif', meta: '700 30px "Nunito", sans-serif', brand: 'italic 700 42px "Cormorant Garamond", Georgia, serif', ink: '#2a3d2e', soft: '#55705a', accent: '#344D38', lh: 60, rad: 26 },
+      vintage: { cap: 'italic 700 50px "Cormorant Garamond", Georgia, serif', meta: '600 30px "EB Garamond", Georgia, serif', brand: '700 40px "Playfair Display", Georgia, serif', ink: '#2b2118', soft: '#6b5a49', accent: '#7A1F2B', lh: 60, rad: 0 },
       spider: { cap: '700 38px "Comic Neue", "Comic Sans MS", sans-serif', meta: '700 27px "Comic Neue", "Comic Sans MS", sans-serif', brand: '400 46px "Bangers", Impact, sans-serif', ink: '#191919', soft: '#4a4f63', accent: '#E63946', lh: 48, rad: 0 },
     }[t];
     try { await Promise.all([F.cap, F.meta, F.brand].map((f) => document.fonts.load(f, 'Aa♡'))); } catch { /* fall back to default fonts */ }
@@ -1255,6 +1277,16 @@
       ctx.globalAlpha = 0.6;
       for (let i = 0; i < 30; i++) glyph(ctx, i % 2 ? 'leaf' : 'petal', rand() * W, rand() * H, 24 + rand() * 40, ['#748B67', '#B7C9A8', '#F2E5A7', '#ffffff'][i % 4], rand() * 6.28);
       ctx.globalAlpha = 1;
+    } else if (t === 'vintage') {
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, '#F6EEDF'); g.addColorStop(0.55, '#EADFC8'); g.addColorStop(1, '#D9C9A6');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 0.14;
+      for (let i = 0; i < 26; i++) glyph(ctx, 'fleur', rand() * W, rand() * H, 34 + rand() * 40, i % 3 ? '#B08D3C' : '#7A1F2B', rand() * 0.8 - 0.4);
+      ctx.globalAlpha = 1;
+      const v = ctx.createRadialGradient(W / 2, H / 2, W * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
+      v.addColorStop(0, 'rgba(43,33,24,0)'); v.addColorStop(1, 'rgba(43,33,24,.28)');
+      ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
     } else {
       ctx.fillStyle = '#101A36'; ctx.fillRect(0, 0, W, H);
       const g = ctx.createRadialGradient(W, 0, 0, W, 0, W);
@@ -1287,6 +1319,12 @@
       ctx.lineWidth = 4; ctx.strokeStyle = '#748B67'; ctx.stroke();
       ctx.setLineDash([10, 9]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(116,139,103,.7)';
       rr(ctx, panelX + 14, panelY + 14, PW - 28, panelH - 28, 32); ctx.stroke(); ctx.setLineDash([]);
+    } else if (t === 'vintage') {
+      ctx.shadowColor = 'rgba(43,33,24,.5)'; ctx.shadowBlur = 36; ctx.shadowOffsetY = 14;
+      ctx.fillStyle = '#FBF6EA'; ctx.fillRect(panelX, panelY, PW, panelH);
+      ctx.shadowColor = 'transparent';
+      ctx.lineWidth = 6; ctx.strokeStyle = '#B08D3C'; ctx.strokeRect(panelX, panelY, PW, panelH);
+      ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(122,31,43,.65)'; ctx.strokeRect(panelX + 14, panelY + 14, PW - 28, panelH - 28);
     } else {
       ctx.fillStyle = '#E63946'; ctx.fillRect(panelX + 18, panelY + 18, PW, panelH);
       ctx.fillStyle = '#ffffff'; ctx.fillRect(panelX, panelY, PW, panelH);
@@ -1309,7 +1347,7 @@
     ctx.fillStyle = F.soft; ctx.font = F.meta;
     ctx.fillText(t === 'spider' ? metaText(m).toUpperCase() : metaText(m), panelX + IN + 10, metaY);
     ctx.fillStyle = F.accent; ctx.font = F.brand; ctx.textAlign = 'right';
-    ctx.fillText(t === 'spider' ? 'LITTLE MEMORIES CLUB' : 'Little Memories Club ♡', panelX + PW - IN - 10, brandY);
+    ctx.fillText(t === 'spider' ? 'LITTLE MEMORIES CLUB' : t === 'vintage' ? 'Little Memories Club' : 'Little Memories Club ♡', panelX + PW - IN - 10, brandY);
     ctx.restore();
 
     // --- decorations on top ---
@@ -1323,6 +1361,10 @@
       daisy(ctx, W - M + 8, panelY + 24, 170, '#ffffff', '#F2C94C');
       daisy(ctx, M + 10, H - M + 4, 130, '#ffffff', '#F2C94C');
       glyph(ctx, 'leaf', W - M - 4, H - M + 4, 150, '#344D38', 2.6);
+    } else if (t === 'vintage') {
+      glyph(ctx, 'fleur', W / 2, panelY + 2, 110, '#B08D3C', 0);
+      glyph(ctx, 'fleur', M + 6, H - M - 4, 80, '#7A1F2B', -0.5);
+      waxSeal(ctx, W - M - 8, panelY + 22, 130, '#7A1F2B');
     } else {
       const bx = W - M - 90, by = panelY + 46;
       glyph(ctx, 'burst', bx + 8, by + 8, 270, '#191919', 0.2);
@@ -1554,7 +1596,7 @@
   const edCanvas = $('#ed-canvas');
   const ed = { it: null, img: null, w: 0, h: 0, st: null, tool: 'stickers', color: '#D94B70', size: 5, drag: null, stroke: null, last: null, rotC: null, view: null, cropBase: null, ratio: null, ratioId: 'free', cdrag: null };
   const PEN_COLORS = ['#D94B70', '#F2C94C', '#7BA05B', '#3B82F6', '#ffffff', '#2b2230'];
-  const FRAMES = [['none', 'None'], ['polaroid', 'Polaroid'], ['pink', 'Pink hearts'], ['garden', 'Garden'], ['comic', 'Comic']];
+  const FRAMES = [['none', 'None'], ['polaroid', 'Polaroid'], ['pink', 'Pink hearts'], ['garden', 'Garden'], ['gilt', 'Gilt'], ['comic', 'Comic']];
   const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 
   const emojiSticker = (ch) => (ctx, x, y, s, rot) => {
@@ -1582,6 +1624,8 @@
     ['flower', emojiSticker('🌸')], ['daisy', emojiSticker('🌼')], ['mush', emojiSticker('🍄')],
     ['star', emojiSticker('⭐')], ['cloud', emojiSticker('☁️')], ['rainbow', emojiSticker('🌈')],
     ['spider', emojiSticker('🕷️')], ['cake', emojiSticker('🎂')],
+    ['fleur', glyphSticker('fleur', '#B08D3C')], ['fleur2', glyphSticker('fleur', '#7A1F2B')],
+    ['wax', (ctx, x, y, s) => waxSeal(ctx, x, y, s, '#7A1F2B')],
   ];
   const STICKER_FN = Object.fromEntries(STICKERS);
 
@@ -1617,6 +1661,14 @@
       ctx.strokeRect(t, t, w - 2 * t, h - 2 * t);
       [[t, t], [w - t, t], [t, h - t], [w - t, h - t], [w / 2, t / 2], [w / 2, h - t / 2], [t / 2, h / 2], [w - t / 2, h / 2]]
         .forEach(([x, y]) => daisy(ctx, x, y, t * 3.2, '#ffffff', '#F2C94C'));
+    } else if (kind === 'gilt') {
+      const t = m * 0.05;
+      band(ctx, w, h, t, t, '#B08D3C');
+      ctx.strokeStyle = '#7A1F2B'; ctx.lineWidth = Math.max(2, m * 0.006);
+      ctx.strokeRect(t * 0.35, t * 0.35, w - t * 0.7, h - t * 0.7);
+      ctx.strokeStyle = '#F6EEDF'; ctx.lineWidth = Math.max(1, m * 0.003);
+      ctx.strokeRect(t * 1.15, t * 1.15, w - t * 2.3, h - t * 2.3);
+      [[t * 1.6, t * 1.6, 0], [w - t * 1.6, t * 1.6, 0.6], [t * 1.6, h - t * 1.6, -0.6], [w - t * 1.6, h - t * 1.6, 3.14]].forEach(([x, y, r]) => glyph(ctx, 'fleur', x, y, t * 2.4, '#7A1F2B', r));
     } else if (kind === 'comic') {
       const t = m * 0.03;
       band(ctx, w, h, t, t, '#111');
@@ -2092,77 +2144,108 @@
   paintMode();
 
   /* ==========================================================
-     Virtual photo booth: 4 shots -> one themed strip
+     Virtual photo booth: 2-4 shots (camera or gallery) -> one themed strip
      ========================================================== */
   const booth = $('#booth');
   const bVideo = $('#booth-video');
   const bStrip = $('#booth-strip');
-  const bState = { stream: null, busy: false, token: 0, last: null };
+  const bState = { stream: null, busy: false, token: 0, last: null, mode: 'camera', n: 4, files: [], urls: [], strip: false };
   const STRIP_LOOK = {
     pink: { bg: '#FBE3EC', line: '#D94B70', ink: '#B03358', glyph: 'heart' },
     garden: { bg: '#E8EFDC', line: '#344D38', ink: '#344D38', glyph: 'leaf' },
+    vintage: { bg: '#F3EADB', line: '#B08D3C', ink: '#7A1F2B', glyph: 'fleur' },
     spider: { bg: '#101A36', line: '#E63946', ink: '#ffffff', glyph: 'burst' },
   };
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const boothMsg = (t) => { $('#booth-msg').textContent = t; };
+  const BOOTH_HINT = { camera: 'Get ready, then press Start.', gallery: 'Choose your photos, then make the strip.' };
 
   function stopCamera() {
     if (bState.stream) bState.stream.getTracks().forEach((t) => t.stop());
     bState.stream = null;
     bVideo.srcObject = null;
   }
+  function clearGallery() {
+    bState.urls.forEach((u) => URL.revokeObjectURL(u));
+    bState.urls = []; bState.files = [];
+    $('#booth-thumbs').textContent = '';
+  }
 
-  async function openBooth() {
+  // One place decides what is visible, so the modes never get out of step.
+  function renderBooth() {
+    const cam = bState.mode === 'camera', strip = bState.strip;
+    $('#booth-opts').hidden = strip;
+    $$('[data-bmode]', booth).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.bmode === bState.mode)));
+    $$('[data-shots]', booth).forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.shots) === bState.n)));
+    $('#booth-stage').hidden = !(strip || cam);
+    bVideo.hidden = strip; bStrip.hidden = !strip;
+    $('#booth-gallery').hidden = strip || cam;
+    $('#booth-retake').hidden = !strip; $('#booth-use').hidden = !strip;
+    const go = $('#booth-shoot');
+    go.hidden = strip || (cam && !bState.stream);
+    go.textContent = cam ? '📸 Start' : '✨ Make strip';
+    go.disabled = !cam && bState.files.length < 2;
+  }
+
+  async function startCamera() {
+    if (bState.stream) return;
+    boothMsg('Opening your camera…');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      boothMsg('This browser can’t open a camera here. Try “From gallery” instead.');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false });
+      if (booth.hidden || bState.mode !== 'camera') { stream.getTracks().forEach((t) => t.stop()); return; }
+      bState.stream = stream;
+      bVideo.srcObject = stream;
+      await bVideo.play().catch(() => {});
+      boothMsg(`${BOOTH_HINT.camera} You get ${bState.n} shots.`);
+      renderBooth();
+      $('#booth-shoot').focus({ preventScroll: true });
+    } catch {
+      boothMsg('We couldn’t open the camera. Allow camera access in your browser’s address bar, or use “From gallery” instead.');
+    }
+  }
+
+  function setBoothMode(mode) {
+    bState.mode = mode;
+    bState.strip = false;
+    if (mode === 'gallery') { stopCamera(); boothMsg(BOOTH_HINT.gallery + ` Pick ${bState.n} (at least 2).`); }
+    renderBooth();
+    if (mode === 'camera') startCamera();
+  }
+
+  function openBooth() {
     if (items.length >= MAX_FILES) { setErr('err-files', `You already have ${MAX_FILES} pictures — remove one first.`); return; }
     bState.last = document.activeElement;
     booth.hidden = false;
     html.classList.add('lb-open');
-    showLive();
-    boothMsg('Opening your camera…');
-    $('#booth-shoot').hidden = true;
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      boothMsg('This browser can’t open a camera here. You can choose pictures from your phone or computer instead.');
-      return;
-    }
-    try {
-      bState.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false });
-      if (booth.hidden) { stopCamera(); return; }
-      bVideo.srcObject = bState.stream;
-      await bVideo.play().catch(() => {});
-      boothMsg('Get ready, then press Start. You get 4 shots.');
-      $('#booth-shoot').hidden = false;
-      $('#booth-shoot').focus({ preventScroll: true });
-    } catch {
-      boothMsg('We couldn’t open the camera. Allow camera access in your browser’s address bar, or choose pictures instead.');
-    }
-  }
-  function showLive() {
-    bVideo.hidden = false; bStrip.hidden = true;
-    $('#booth-retake').hidden = true; $('#booth-use').hidden = true;
-    $('#booth-shoot').hidden = !bState.stream;
+    setBoothMode(bState.mode);
   }
   function closeBooth() {
     if (booth.hidden) return;
     bState.token++;
     booth.hidden = true;
     html.classList.remove('lb-open');
-    stopCamera();
+    stopCamera(); clearGallery();
+    bState.strip = false; bState.busy = false;
     $('#booth-count').textContent = '';
     if (bState.last && bState.last.focus) bState.last.focus({ preventScroll: true });
   }
 
   const SHOT_W = 600, SHOT_H = 420;
-  function grabShot() {
+  function coverCanvas(src, sw, sh, mirror) {
     const c = document.createElement('canvas');
     c.width = SHOT_W; c.height = SHOT_H;
     const x = c.getContext('2d');
-    const vw = bVideo.videoWidth || 640, vh = bVideo.videoHeight || 480;
-    const k = Math.max(SHOT_W / vw, SHOT_H / vh);
-    const dw = vw * k, dh = vh * k;
-    x.translate(SHOT_W, 0); x.scale(-1, 1);              // mirror, like the preview
-    x.drawImage(bVideo, (SHOT_W - dw) / 2, (SHOT_H - dh) / 2, dw, dh);
+    const k = Math.max(SHOT_W / sw, SHOT_H / sh);
+    const dw = sw * k, dh = sh * k;
+    if (mirror) { x.translate(SHOT_W, 0); x.scale(-1, 1); }   // mirror, like the preview
+    x.drawImage(src, (SHOT_W - dw) / 2, (SHOT_H - dh) / 2, dw, dh);
     return c;
   }
+  const grabShot = () => coverCanvas(bVideo, bVideo.videoWidth || 640, bVideo.videoHeight || 480, true);
 
   function composeStrip(shots) {
     const look = STRIP_LOOK[theme()] || STRIP_LOOK.pink;
@@ -2178,26 +2261,33 @@
     });
     const fy = H - foot / 2 - 4;
     x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = look.ink;
-    x.font = '700 38px "Dancing Script", Georgia, serif';
+    x.font = theme() === 'vintage' ? '700 36px "Playfair Display", Georgia, serif' : '700 38px "Dancing Script", Georgia, serif';
     x.fillText('Little Memories Club', W / 2, fy - 12);
     x.font = '600 24px "Courier New", monospace';
     x.fillText(new Date().toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase(), W / 2, fy + 26);
     glyph(x, look.glyph, 52, fy + 4, 34, look.line, -0.2);
     glyph(x, look.glyph, W - 52, fy + 4, 34, look.line, 0.2);
   }
+  function showStrip(shots) {
+    composeStrip(shots);
+    bState.strip = true;
+    renderBooth();
+    $('#booth-use').focus({ preventScroll: true });
+    boothMsg('Ta-da! Use it, or retake.');
+  }
 
   async function runBooth() {
     if (bState.busy || !bState.stream) return;
     bState.busy = true;
     const mine = ++bState.token;
-    $('#booth-shoot').hidden = true;
+    $('#booth-shoot').hidden = true; $('#booth-opts').hidden = true;
     const shots = [];
     const count = $('#booth-count'), flash = $('#booth-flash');
     try {
-      for (let i = 0; i < 4; i++) {
-        boothMsg(`Shot ${i + 1} of 4 — smile!`);
-        for (let n = 3; n >= 1; n--) {
-          count.textContent = String(n);
+      for (let i = 0; i < bState.n; i++) {
+        boothMsg(`Shot ${i + 1} of ${bState.n} — smile!`);
+        for (let k = 3; k >= 1; k--) {
+          count.textContent = String(k);
           await sleep(reduced.matches ? 600 : 800);
           if (bState.token !== mine) return;
         }
@@ -2208,18 +2298,75 @@
         await sleep(350);
         if (bState.token !== mine) return;
       }
-      composeStrip(shots);
-      bVideo.hidden = true; bStrip.hidden = false;
-      $('#booth-retake').hidden = false; $('#booth-use').hidden = false;
-      $('#booth-use').focus({ preventScroll: true });
-      boothMsg('Ta-da! Use it, or retake.');
-    } finally { bState.busy = false; if (bState.token === mine && bStrip.hidden) $('#booth-shoot').hidden = false; }
+      showStrip(shots);
+    } finally {
+      bState.busy = false;
+      if (bState.token === mine && !bState.strip) renderBooth();
+    }
+  }
+
+  async function makeGalleryStrip() {
+    const files = bState.files.slice(0, bState.n);
+    if (files.length < 2) { boothMsg('Pick at least 2 photos.'); return; }
+    const go = $('#booth-shoot');
+    go.disabled = true;
+    const shots = [];
+    try {
+      for (const f of files) {
+        const bmp = await createImageBitmap(f, { imageOrientation: 'from-image' });
+        shots.push(coverCanvas(bmp, bmp.width, bmp.height, false));
+        if (bmp.close) bmp.close();
+      }
+      showStrip(shots);
+    } catch {
+      boothMsg('One of those pictures couldn’t be read. Please choose different ones.');
+      go.disabled = false;
+    }
+  }
+
+  function renderThumbs() {
+    const ul = $('#booth-thumbs');
+    ul.textContent = '';
+    bState.urls.forEach((u, i) => {
+      const li = el('li', i < bState.n ? '' : 'extra');
+      const im = new Image(); im.src = u; im.alt = `Photo ${i + 1}`;
+      li.append(im);
+      ul.append(li);
+    });
+  }
+  function takeFiles(list) {
+    const good = [], problems = [];
+    [...list].forEach((f) => { const bad = checkFile(f); if (bad) problems.push(bad); else good.push(f); });
+    clearGallery();
+    bState.files = good.slice(0, 6);
+    bState.urls = bState.files.map((f) => URL.createObjectURL(f));
+    renderThumbs();
+    const n = bState.n, got = bState.files.length;
+    if (problems.length) boothMsg(problems[0]);
+    else if (got < 2) boothMsg('Pick at least 2 photos.');
+    else if (got > n) boothMsg(`You picked ${got} — the first ${n} will be used.`);
+    else if (got < n) boothMsg(`${got} photos picked — your strip will have ${got} shots.`);
+    else boothMsg('Looking good! Make your strip.');
+    renderBooth();
   }
 
   $('#booth-open').addEventListener('click', openBooth);
   $('#booth-cancel').addEventListener('click', closeBooth);
-  $('#booth-shoot').addEventListener('click', runBooth);
-  $('#booth-retake').addEventListener('click', () => { showLive(); boothMsg('Get ready, then press Start. You get 4 shots.'); });
+  $('#booth-shoot').addEventListener('click', () => (bState.mode === 'camera' ? runBooth() : makeGalleryStrip()));
+  $('#booth-retake').addEventListener('click', () => {
+    bState.strip = false; renderBooth();
+    boothMsg(bState.mode === 'camera' ? `${BOOTH_HINT.camera} You get ${bState.n} shots.` : BOOTH_HINT.gallery);
+  });
+  $$('[data-bmode]', booth).forEach((b) => b.addEventListener('click', () => { if (!bState.busy && b.dataset.bmode !== bState.mode) setBoothMode(b.dataset.bmode); }));
+  $$('[data-shots]', booth).forEach((b) => b.addEventListener('click', () => {
+    if (bState.busy) return;
+    bState.n = Number(b.dataset.shots);
+    renderThumbs(); renderBooth();
+    boothMsg(bState.mode === 'camera' ? `${BOOTH_HINT.camera} You get ${bState.n} shots.` : `${BOOTH_HINT.gallery} Pick ${bState.n} (at least 2).`);
+    if (bState.mode === 'gallery' && bState.files.length) takeFiles(bState.files);
+  }));
+  $('#booth-pick').addEventListener('click', () => $('#booth-files').click());
+  $('#booth-files').addEventListener('change', (e) => { const f = [...e.target.files]; e.target.value = ''; if (f.length) takeFiles(f); });
   $('#booth-use').addEventListener('click', async () => {
     const blob = await toBlob(bStrip, 'image/jpeg', 0.9);
     if (!blob) { boothMsg('Couldn’t save the strip. Please retake.'); return; }
