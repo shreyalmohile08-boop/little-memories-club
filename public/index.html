@@ -12,8 +12,8 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath fill='%23D94B70' d='M24 42C10 31 4 23 4 15a10 10 0 0 1 20-3 10 10 0 0 1 20 3c0 8-6 16-20 27z'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Caveat:wght@500;700&family=Comic+Neue:wght@400;700&family=Cormorant+Garamond:ital,wght@0,500;0,700;1,500;1,700&family=Dancing+Script:wght@600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
-<script>try{var t=localStorage.getItem('lmc-theme');if(t==='pink'||t==='garden'||t==='spider')document.documentElement.dataset.theme=t}catch(e){}
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Caveat:wght@500;700&family=Comic+Neue:wght@400;700&family=Cormorant+Garamond:ital,wght@0,500;0,700;1,500;1,700&family=Dancing+Script:wght@600;700&family=Nunito:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=Playfair+Display:wght@500;700&display=swap" rel="stylesheet">
+<script>try{var t=localStorage.getItem('lmc-theme');if(t==='pink'||t==='garden'||t==='spider'||t==='vintage')document.documentElement.dataset.theme=t}catch(e){}
 try{var m=localStorage.getItem('lmc-mode');if(m==='night'||(m!=='day'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.dataset.mode='night'}catch(e){}</script>
 <link rel="stylesheet" href="/css/styles.css">
 <noscript><style>.reveal,.card{opacity:1!important;translate:none!important}</style></noscript>
@@ -24,6 +24,9 @@ try{var m=localStorage.getItem('lmc-mode');if(m==='night'||(m!=='day'&&window.ma
 <!-- Icon sprite -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <defs>
+    <symbol id="i-fleur" viewBox="0 0 48 48"><path d="M24 2c4 6 6 11 6 16 0 4-2 7-6 10-4-3-6-6-6-10 0-5 2-10 6-16z"/><path d="M19 22c-5-5-12-5-15 0-2 4 0 9 5 10 3 .5 6-1 8-4-3 .5-6-1-6-4 0-2 2-3 4-2 2 .5 3 .5 4 0z"/><path d="M29 22c5-5 12-5 15 0 2 4 0 9-5 10-3 .5-6-1-8-4 3 .5 6-1 6-4 0-2-2-3-4-2-2 .5-3 .5-4 0z"/><path d="M14 33h20v3.5H14z"/><path d="M20 38.5h8L24 46z"/></symbol>
+    <symbol id="i-seal" viewBox="0 0 48 48"><g><circle cx="24" cy="8" r="5"/><circle cx="34" cy="11" r="5"/><circle cx="40" cy="20" r="5"/><circle cx="40" cy="30" r="5"/><circle cx="34" cy="38" r="5"/><circle cx="24" cy="41" r="5"/><circle cx="14" cy="38" r="5"/><circle cx="8" cy="30" r="5"/><circle cx="8" cy="20" r="5"/><circle cx="14" cy="11" r="5"/><circle cx="24" cy="24" r="17"/></g><circle cx="24" cy="24" r="11.5" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.6"/><path d="M24 31c-6-4.5-9-8-9-11.5a4.6 4.6 0 0 1 9-1.3 4.6 4.6 0 0 1 9 1.3c0 3.5-3 7-9 11.5z" fill="rgba(255,255,255,.55)"/></symbol>
+    <symbol id="i-laurel" viewBox="0 0 48 48"><g fill="currentColor"><path d="M24 44C14 42 6 34 5 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><ellipse cx="7.5" cy="33" rx="2.6" ry="5.5" transform="rotate(-30 7.5 33)"/><ellipse cx="6.5" cy="25" rx="2.6" ry="5.5" transform="rotate(-8 6.5 25)"/><ellipse cx="9.5" cy="17" rx="2.6" ry="5.5" transform="rotate(20 9.5 17)"/><ellipse cx="15" cy="10.5" rx="2.6" ry="5.5" transform="rotate(45 15 10.5)"/><ellipse cx="13" cy="39" rx="2.6" ry="5.5" transform="rotate(-62 13 39)"/><path d="M24 44c10-2 18-10 19-22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><ellipse cx="40.5" cy="33" rx="2.6" ry="5.5" transform="rotate(30 40.5 33)"/><ellipse cx="41.5" cy="25" rx="2.6" ry="5.5" transform="rotate(8 41.5 25)"/><ellipse cx="38.5" cy="17" rx="2.6" ry="5.5" transform="rotate(-20 38.5 17)"/><ellipse cx="33" cy="10.5" rx="2.6" ry="5.5" transform="rotate(-45 33 10.5)"/><ellipse cx="35" cy="39" rx="2.6" ry="5.5" transform="rotate(62 35 39)"/></g></symbol>
     <symbol id="i-heart" viewBox="0 0 48 48"><path d="M24 42C10 31 4 23 4 15a10 10 0 0 1 20-3 10 10 0 0 1 20 3c0 8-6 16-20 27z"/></symbol>
     <symbol id="i-sparkle" viewBox="0 0 48 48"><path d="M24 2c1.8 10 4.6 18.2 22 22-17.4 3.8-20.2 12-22 22-1.8-10-4.6-18.2-22-22C19.4 20.2 22.2 12 24 2z"/></symbol>
     <symbol id="i-bow" viewBox="0 0 48 48"><path d="M24 24C14 12 4 10 4 20s10 14 20 4zM24 24c10-12 20-14 20-4s-10 14-20 4z"/><circle cx="24" cy="24" r="4.6"/><path d="M22 28l-7 15 9-6zM26 28l7 15-9-6z"/></symbol>
@@ -56,6 +59,7 @@ try{var m=localStorage.getItem('lmc-mode');if(m==='night'||(m!=='day'&&window.ma
 <div id="cursor" aria-hidden="true">
   <svg class="c c-pink" width="30" height="30"><use href="#i-heart"/></svg>
   <svg class="c c-garden" width="30" height="30"><use href="#i-daisy"/></svg>
+  <svg class="c c-vintage" width="30" height="30"><use href="#i-fleur"/></svg>
   <svg class="c c-spider" viewBox="0 0 32 32" width="30" height="30"><g fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="16" cy="16" r="11"/><circle cx="16" cy="16" r="5.5"/><path d="M16 2v28M2 16h28M6 6l20 20M26 6L6 26" stroke-width="1"/></g><circle cx="16" cy="16" r="2" fill="#E63946"/></svg>
 </div>
 <div id="fx" aria-hidden="true"></div>
@@ -79,6 +83,12 @@ try{var m=localStorage.getItem('lmc-mode');if(m==='night'||(m!=='day'&&window.ma
       <svg class="a leaf-l"><use href="#i-leaf"/></svg>
       <svg class="a leaf-r"><use href="#i-leaf"/></svg>
       <svg class="a bfly"><use href="#i-butterfly"/></svg>
+    </div>
+    <div class="art art-vintage">
+      <svg class="a fleur-l"><use href="#i-fleur"/></svg>
+      <svg class="a fleur-r"><use href="#i-fleur"/></svg>
+      <svg class="a laurel-l"><use href="#i-laurel"/></svg>
+      <svg class="a seal"><use href="#i-seal"/></svg>
     </div>
     <div class="art art-spider">
       <svg class="a web-l"><use href="#i-web"/></svg>
@@ -150,6 +160,18 @@ try{var m=localStorage.getItem('lmc-mode');if(m==='night'||(m!=='day'&&window.ma
         </span>
         <span class="theme-name">Garden Whimsy ☘</span>
         <span class="theme-desc">Cottagecore, botanical journal</span>
+        <span class="badge">✓ chosen</span>
+      </button>
+      <button type="button" class="theme-card glass" role="radio" aria-checked="false" data-theme-choice="vintage">
+        <span class="preview" aria-hidden="true">
+          <svg class="pv-deco d1"><use href="#i-fleur"/></svg>
+          <svg class="pv-deco d2"><use href="#i-seal"/></svg>
+          <span class="pv-title">Little Notes</span>
+          <span class="pv-card"><i></i><b>the family album</b></span>
+          <span class="pv-btn">＋ Add a memory</span>
+        </span>
+        <span class="theme-name">Vintage Estate ⚜</span>
+        <span class="theme-desc">Old money, antique keepsake album</span>
         <span class="badge">✓ chosen</span>
       </button>
       <button type="button" class="theme-card glass" role="radio" aria-checked="false" data-theme-choice="spider">
@@ -243,7 +265,7 @@ try{var m=localStorage.getItem('lmc-mode');if(m==='night'||(m!=='day'&&window.ma
         <span class="dz-title">Drop pictures here, or tap to choose</span>
         <span class="dz-sub">Up to 6 pictures · JPG, PNG, WebP or GIF</span>
       </label>
-      <div class="ed-row booth-row"><button type="button" class="btn btn-glass small" id="booth-open">📸 Photo booth</button><span class="hint">Take a 4-shot strip with your camera.</span></div>
+      <div class="ed-row booth-row"><button type="button" class="btn btn-glass small" id="booth-open">📸 Photo booth</button><span class="hint">Make a photo strip with your camera or from your gallery.</span></div>
       <p class="err" id="err-files" role="alert"></p>
       <input id="replace-input" class="sr-only" type="file" accept="image/jpeg,image/png,image/webp,image/gif" tabindex="-1" aria-hidden="true">
       <ul id="previews" class="previews" aria-label="Selected pictures"></ul>
@@ -329,6 +351,9 @@ try{var m=localStorage.getItem('lmc-mode');if(m==='night'||(m!=='day'&&window.ma
     <svg class="fd f6"><use href="#i-butterfly"/></svg>
     <svg class="fd f7"><use href="#i-spider"/></svg>
     <svg class="fd f8"><use href="#i-burst"/></svg>
+    <svg class="fd f9"><use href="#i-fleur"/></svg>
+    <svg class="fd f10"><use href="#i-seal"/></svg>
+    <svg class="fd f11"><use href="#i-laurel"/></svg>
   </div>
   <p class="footer-msg">Some moments are too little to remember, and too lovely to forget ♡</p>
   <button type="button" id="to-top" class="btn btn-glass">↑ Back to the top</button>
@@ -436,13 +461,29 @@ try{var m=localStorage.getItem('lmc-mode');if(m==='night'||(m!=='day'&&window.ma
 <!-- ============ PHOTO BOOTH ============ -->
 <div id="booth" class="editor" role="dialog" aria-modal="true" aria-label="Photo booth" hidden>
   <div class="ed-panel glass booth-panel">
+    <div id="booth-opts" class="booth-opts">
+      <div class="ed-row" role="group" aria-label="Where do the photos come from?">
+        <button type="button" class="btn btn-glass small" data-bmode="camera" aria-pressed="true">📷 Camera</button>
+        <button type="button" class="btn btn-glass small" data-bmode="gallery" aria-pressed="false">🖼️ From gallery</button>
+      </div>
+      <div class="ed-row" role="group" aria-label="How many shots?">
+        <button type="button" class="btn btn-glass small" data-shots="2" aria-pressed="false">2 shots</button>
+        <button type="button" class="btn btn-glass small" data-shots="3" aria-pressed="false">3 shots</button>
+        <button type="button" class="btn btn-glass small" data-shots="4" aria-pressed="true">4 shots</button>
+      </div>
+    </div>
     <div class="booth-stage" id="booth-stage">
       <video id="booth-video" playsinline muted></video>
       <canvas id="booth-strip" hidden aria-label="Your photo strip"></canvas>
       <div id="booth-count" class="booth-count" aria-live="assertive"></div>
       <div id="booth-flash" class="booth-flash"></div>
     </div>
-    <p class="hint" id="booth-msg" role="status">Allow the camera, get ready and press Start. You get 4 shots.</p>
+    <div id="booth-gallery" class="booth-gallery" hidden>
+      <input id="booth-files" class="sr-only" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple>
+      <button type="button" class="btn btn-glass" id="booth-pick">🖼️ Choose photos from your gallery</button>
+      <ul id="booth-thumbs" class="booth-thumbs" aria-label="Chosen photos"></ul>
+    </div>
+    <p class="hint" id="booth-msg" role="status">Allow the camera, get ready and press Start.</p>
     <div class="ed-foot">
       <button type="button" class="btn btn-primary small" id="booth-shoot">📸 Start</button>
       <button type="button" class="btn btn-glass small" id="booth-retake" hidden>Retake</button>
